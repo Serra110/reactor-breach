@@ -4,11 +4,16 @@ using UnityEngine;
 public class InventoryUI : MonoBehaviour
 {
     public TMP_Text text;
+
     void Update()
     {
+        if (text == null)
+            return;
+
+        var manager = InventoryManager.Instance;
         text.text =
-            "Metal: " + InventoryManager.Instance.GetResourceAmount("Metal") + "\n" +
-            "Uranium: " + InventoryManager.Instance.GetResourceAmount("Uranium") + "\n" +
-            "Money: " + InventoryManager.Instance.GetResourceAmount("Money");
+            "Metal: " + manager.GetResourceAmount("Metal") + "\n" +
+            "Uranium: " + manager.GetResourceAmount("Uranium") + "\n" +
+            "Money: " + manager.GetResourceAmount("Money");
     }
 }

@@ -131,7 +131,9 @@ public class PauseMenu : MonoBehaviour
         if (mineralsUI != null)
             mineralsUI.SetActive(!paused);
 
+#pragma warning disable CS0618
         InventoryUI[] inventoryUIs = FindObjectsOfType<InventoryUI>(true);
+#pragma warning restore CS0618
         foreach (InventoryUI inventoryUI in inventoryUIs)
         {
             if (inventoryUI != null)
@@ -147,6 +149,7 @@ public class PauseMenu : MonoBehaviour
     public void MainMenu()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        Debug.Log("Voltando para o MainMenu...");
+        SceneManager.LoadScene("MainMenu");
     }
 }
