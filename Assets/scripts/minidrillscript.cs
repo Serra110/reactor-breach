@@ -1,10 +1,9 @@
 using UnityEngine;
 
-public class MiniDrillMachine : MonoBehaviour
+public class MiniDrillMachine : EletricUnit
 {
     [Header("References")]
-    public Transform drillBody;
-    public Transform drillHead;
+    public Transform drillBody;    public Transform drillHead;
     public AudioSource drillAudioSource;
     public AudioClip drillSound;
 
@@ -26,15 +25,22 @@ public class MiniDrillMachine : MonoBehaviour
     [Header("Production")]
     public float interval = 3f;
     public int metalPerTick = 1;
+    public ItemSO producedItem;
+    [Tooltip("Raio de procura por depósitos de minério próximos (mundo)")]
+    public float oreSearchRadius = 2f;
 
     [Header("Optional")]
     public bool requiresPower = false;
     public bool isPowered = true;
     public bool requiresSpinning = true;
 
-    [Header("Debug/Testing")]
-    public int debugAddMetal = 0;
-    public bool addToInventoryDebug = false;
+    [Header("Integrated Battery (one-time use)")]
+    [Tooltip("Energia total da bateria embutida. Uma vez vazia, o drill morre para sempre.")]
+    public int batteryCapacity = 1000;
+    [Tooltip("Quanto de bateria gasta por segundo enquanto trabalha.")]
+    public float batteryDrainPerSecond = 3.33f;
+    private float batteryCharge;
+    private bool batteryDead = false;
 
     [Header("Placement")]
     public bool isPlaced = false;
@@ -49,24 +55,67 @@ public class MiniDrillMachine : MonoBehaviour
     private bool isSpinning = false;
     private bool hasReachedBottom = false;
     private bool isFinished = false; // true quando o drill já completou o ciclo e deve parar para sempre
+    private OreDeposit currentDeposit;
 
     void Start()
     {
         if (drillBody == null)
             drillBody = transform;
 
-        Vector3 pos = drillBody.localPosition;
-        pos.y = startY;
-        drillBody.localPosition = pos;
+        AlignToGround();
 
         spinSpeed = spinStartSpeed;
         productionTimer = 0f;
+        batteryCharge = batteryCapacity;
 
-        Debug.Log("DrillMachine started at position: " + transform.position + " | isPlaced: " + isPlaced);
-
-        // Se não tiver AudioSource, tenta criar um
         if (drillAudioSource == null)
             drillAudioSource = GetComponent<AudioSource>();
+    }
+
+    public float GetBatteryCharge() => batteryCharge;
+    public bool IsBatteryDead() => batteryDead;
+
+    public override void OnDetected()
+    {
+        base.OnDetected();
+        if (ElectricUI1.instance != null)
+        {
+            ElectricUI1.instance.ShowBatteryDataPanel(
+                string.IsNullOrEmpty(unitName) ? "Mini Drill" : unitName,
+                Mathf.RoundToInt(batteryCharge).ToString(),
+                batteryCapacity.ToString());
+        }
+    }
+
+    void AlignToGround()
+    {
+        Ray ray = new Ray(transform.position + Vector3.up * 5f, Vector3.down);
+        RaycastHit[] hits = Physics.RaycastAll(ray, 50f);
+        foreach (var hit in hits)
+        {
+            if (hit.collider == null)
+                continue;
+            if (hit.collider.transform.IsChildOf(transform))
+                continue;
+
+            Renderer[] renderers = GetComponentsInChildren<Renderer>();
+            if (renderers.Length > 0)
+            {
+                Bounds bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++)
+                    bounds.Encapsulate(renderers[i].bounds);
+
+                float bottomOffset = transform.position.y - bounds.min.y;
+                Vector3 pos = transform.position;
+                pos.y = hit.point.y + bottomOffset;
+                transform.position = pos;
+            }
+            break;
+        }
+
+        Vector3 localPos = drillBody.localPosition;
+        localPos.y = startY;
+        drillBody.localPosition = localPos;
     }
  
     void Update()
@@ -80,7 +129,15 @@ public class MiniDrillMachine : MonoBehaviour
             spinSpeed = 0f;
             isSpinning = false;
             HandleAudio();  // como isSpinning é false, isto vai parar o som
-            HandleDebug();
+            return;
+        }
+
+        // Se a bateria integrada acabou, o drill fica morto para sempre (one-time use).
+        if (batteryDead)
+        {
+            spinSpeed = 0f;
+            isSpinning = false;
+            HandleAudio();  // como isSpinning é false, isto vai parar o som
             return;
         }
 
@@ -94,8 +151,8 @@ public class MiniDrillMachine : MonoBehaviour
 
         HandleSpin();
         HandleAudio();
+        HandleBattery();
         HandleProduction();
-        HandleDebug();
     }
     void StartDrop()
     {
@@ -123,8 +180,7 @@ public class MiniDrillMachine : MonoBehaviour
         if (Mathf.Abs(velY) < 0.001f)
         {
             state = 3;
-            hasReachedBottom = true;  // Mini drill atingiu o fundo - marca para parar mineração
-            Debug.Log("[MiniDrill] ATINGIU O FUNDO (velocidade Y = 0) - hasReachedBottom=true, vai parar de minerar e subir. spinSpeed atual: " + spinSpeed + " | inspectorSpinSpeed: " + inspectorSpinSpeed);
+            hasReachedBottom = true;
         }
     }
 
@@ -138,9 +194,8 @@ public class MiniDrillMachine : MonoBehaviour
 
             if (Mathf.Abs(velY) < 0.001f)
             {
-                isPlaced = false;   // Desativa produção para sempre
-                isFinished = true;  // Marca como terminado: nunca mais desce, gira, ou produz
-                Debug.Log("[MiniDrill] CHEGOU AO TOPO (velocidade Y = 0) - Mini Drill finished its cycle - stopped permanently at top");
+                state = 0;
+                hasReachedBottom = false;
             }
         }
         else
@@ -177,41 +232,52 @@ public class MiniDrillMachine : MonoBehaviour
         }
     }
 
+    void HandleBattery()
+    {
+        if (batteryDead)
+            return;
+
+        // Só gasta bateria quando está realmente a trabalhar (colocado e a girar/produzir)
+        if (!isPlaced || (!isSpinning && !hasReachedBottom))
+            return;
+
+        batteryCharge -= batteryDrainPerSecond * Time.deltaTime;
+
+        if (batteryCharge <= 0f)
+        {
+            batteryCharge = 0f;
+            batteryDead = true;
+            spinSpeed = 0f;
+            isSpinning = false;
+        }
+    }
+
     void HandleProduction()
     {
-        // Segurança extra: nunca produz se o ciclo já terminou
         if (isFinished)
-        {
             return;
-        }
 
-        // Não faz nada se ainda não foi colocado no mundo
         if (!isPlaced)
-        {
-            Debug.Log("Production blocked: not placed");
             return;
-        }
 
-        // Mini drill para de minerar se atingiu o fundo
         if (hasReachedBottom)
+            return;
+
+        if (batteryDead)
+            return;
+
+        // Procura depósito de minério válido na posição atual.
+        // Se houver um depósito por perto, usa-o; se não, minera na mesma
+        // (comportamento igual ao DrillMachine original, que produzia Metal direto).
+        currentDeposit = FindNearbyOreDeposit(oreSearchRadius);
+        if (currentDeposit != null && !currentDeposit.HasResourcesLeft())
         {
-            Debug.Log("Production blocked: mini drill reached bottom");
+            isFinished = true;
             return;
         }
 
-        // Energia (se quiseres usar depois)
-        if (requiresPower && !isPowered)
-        {
-            Debug.Log("Production blocked: no power");
-            return;
-        }
-
-        // Só produz se estiver a girar (se isso for obrigatório)
         if (requiresSpinning && !isSpinning)
-        {
-            Debug.Log("Production blocked: requires spinning but not spinning");
             return;
-        }
 
         productionTimer += Time.deltaTime;
 
@@ -224,40 +290,39 @@ public class MiniDrillMachine : MonoBehaviour
 
     void Produce()
     {
-        Debug.Log("Produce() called - checking output targets");
-        
-        // prefer explicit output conveyor
+        if (currentDeposit != null)
+            currentDeposit.Extract(metalPerTick);
+
         if (outputConveyor == null)
             outputConveyor = FindNearbyConveyor();
 
         if (outputConveyor != null)
         {
             outputConveyor.AddItem("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> conveyor");
             return;
         }
 
-        // then explicit/nearby storage
         if (targetStorage == null)
             targetStorage = FindNearbyStorage();
 
         if (targetStorage != null)
         {
             targetStorage.AddItem("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> storage");
             return;
         }
 
-        // fallback to inventory
+        if (producedItem != null)
+        {
+            var inv = ReactorBreach.InventorySystem.Inventory.Instance;
+            if (inv != null)
+            {
+                inv.AddItem(producedItem, metalPerTick);
+                return;
+            }
+        }
+
         if (InventoryManager.Instance != null)
-        {
             InventoryManager.Instance.AddResource("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> inventory");
-        }
-        else
-        {
-            Debug.LogWarning("Drill production failed: no conveyor, storage, or inventory!");
-        }
     }
 
     Conveyor FindNearbyConveyor(float radius = 1.5f)
@@ -300,29 +365,23 @@ public class MiniDrillMachine : MonoBehaviour
         velocityY = (Time.deltaTime > 0f) ? (pos.y - beforeY) / Time.deltaTime : 0f;
     }
 
+    OreDeposit FindNearbyOreDeposit(float radius = 2f)
+    {
+        Collider[] cols = Physics.OverlapSphere(transform.position, radius);
+        foreach (var c in cols)
+        {
+            var deposit = c.GetComponentInParent<OreDeposit>();
+            if (deposit != null && deposit.IsWithinRange(transform.position))
+                return deposit;
+        }
+
+        return null;
+    }
+
     public void SetPlaced()
     {
         isPlaced = true;
         productionTimer = 0f;
     }
 
-    void HandleDebug()
-    {
-        if (debugAddMetal > 0 && addToInventoryDebug)
-        {
-            if (InventoryManager.Instance != null)
-            {
-                InventoryManager.Instance.AddResource("Metal", debugAddMetal);
-                Debug.Log("Debug: Added " + debugAddMetal + " Metal to inventory");
-            }
-            else
-            {
-                Debug.LogWarning("InventoryManager not found!");
-            }
-
-            // Reset
-            debugAddMetal = 0;
-            addToInventoryDebug = false;
-        }
-    }
 }

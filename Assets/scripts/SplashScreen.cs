@@ -28,13 +28,16 @@ public class SplashScreen : MonoBehaviour
     {
         float t = 0;
         Color c = logo.color;
+        float duration = 1f / fadeSpeed;
 
-        while (t < fadeSpeed)
+        while (t < duration)
         {
             t += Time.deltaTime;
-            float alpha = Mathf.Lerp(from, to, t / fadeSpeed);
+            float alpha = Mathf.Lerp(from, to, t / duration);
             logo.color = new Color(c.r, c.g, c.b, alpha);
             yield return null;
         }
+
+        logo.color = new Color(c.r, c.g, c.b, to);
     }
 }

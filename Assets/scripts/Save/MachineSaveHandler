@@ -1,0 +1,32 @@
+using UnityEngine;
+public class MachineSaveHandler : MonoBehaviour, ISaveable, IPlaceable
+{
+    [SerializeField] private string machineType;
+    private string machineId;
+    private void Awake()
+    {
+        if (string.IsNullOrEmpty(machineId))
+            machineId = System.Guid.NewGuid().ToString();
+    }
+    private void OnDisable()
+    {
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.Unregister(this);
+    }
+    public string GetUniqueId() => machineId;
+    public string GetMachineType() => machineType;
+    public void AssignSaveId(string saveId)
+    {
+        SaveManager.Instance.Unregister(this);
+        machineId = saveId;
+        SaveManager.Instance.Register(this);
+    }
+    public string CaptureState()
+    {
+        return "{}";
+    }
+    public void RestoreState(string json)
+    {
+        
+    }
+}

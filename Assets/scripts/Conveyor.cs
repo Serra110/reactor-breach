@@ -17,6 +17,7 @@ public class Conveyor : MonoBehaviour
 
     public Conveyor nextConveyor;
     public Storage targetStorage;
+    public ItemSO fallbackItem;
 
     private readonly Queue<ResourceTransfer> items = new Queue<ResourceTransfer>();
 
@@ -76,6 +77,33 @@ public class Conveyor : MonoBehaviour
             }
 
             // fallback: add to player inventory if available
+            if (fallbackItem != null)
+            {
+                var inv = ReactorBreach.InventorySystem.Inventory.Instance;
+                if (inv != null)
+                {
+                    inv.AddItem(fallbackItem, transfer.amount);
+                    return;
+                }
+            }
+            else
+            {
+                // try to find an ItemSO matching the transfer name via the inventory's initial items
+                var inv = ReactorBreach.InventorySystem.Inventory.Instance;
+                if (inv != null)
+                {
+                    // search through the inventory for items with matching name
+                    for (int i = 0; i < inv.GetSlotCount(); i++)
+                    {
+                        if (inv.TryGetItemAtIndex(i, out ItemSO slotItem, out _) && slotItem != null && slotItem.itemName == transfer.itemName)
+                        {
+                            inv.AddItem(slotItem, transfer.amount);
+                            return;
+                        }
+                    }
+                }
+            }
+
             if (InventoryManager.Instance != null)
             {
                 InventoryManager.Instance.AddResource(transfer.itemName, transfer.amount);

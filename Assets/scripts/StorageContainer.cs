@@ -5,6 +5,7 @@ public class Storage : MonoBehaviour
 {
     [Header("Settings")]
     public int maxStorage = 200;
+    public float interactRange = 3f;
     public bool enableDebugKeys = true;
     public int debugDepositAmount = 1;
     public int debugWithdrawAmount = 1;
@@ -24,6 +25,15 @@ public class Storage : MonoBehaviour
 
     private void OnMouseDown()
     {
+        // Check if player is within interaction range
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            float dist = Vector3.Distance(transform.position, player.transform.position);
+            if (dist > interactRange)
+                return;
+        }
+
         Deposit("Metal", debugDepositAmount);
     }
 
@@ -67,7 +77,7 @@ public class Storage : MonoBehaviour
         return total;
     }
 
-    // ===== PLAYER INTERACTION =====
+    // ===== PLAYER INTERACTION (old string-based) =====
 
     public void Deposit(string item, int amount)
     {
@@ -92,5 +102,53 @@ public class Storage : MonoBehaviour
             return;
 
         inv.AddResource(item, amount);
+    }
+
+    // ===== PLAYER INTERACTION (new ItemSO-based) =====
+
+    public void Deposit(ItemSO item, int amount)
+    {
+        var inv = ReactorBreach.InventorySystem.Inventory.Instance;
+        if (inv == null) return;
+
+        if (!inv.HasItem(item, amount))
+            return;
+
+        if (AddItem(item.itemName, amount))
+            inv.RemoveItem(item, amount);
+    }
+
+    public void Withdraw(ItemSO item, int amount)
+    {
+        var inv = ReactorBreach.InventorySystem.Inventory.Instance;
+        if (inv == null) return;
+
+        if (!RemoveItem(item.itemName, amount))
+            return;
+
+        inv.AddItem(item, amount);
+    }
+
+    // ===== MVP: E numa storage devolve tudo ao inventário do jogador (ItemSO) =====
+
+    public void WithdrawAllToInventory()
+    {
+        var inv = ReactorBreach.InventorySystem.Inventory.Instance;
+        if (inv == null) return;
+
+        var keys = new List<string>(items.Keys);
+        foreach (var key in keys)
+        {
+            if (!items.TryGetValue(key, out int amount) || amount <= 0)
+                continue;
+
+            ItemSO itemSO = inv.FindItemByName(key);
+            if (itemSO == null) continue;
+
+            int remaining = inv.AddItem(itemSO, amount);
+            int taken = amount - remaining;
+            if (taken > 0)
+                RemoveItem(key, taken);
+        }
     }
 }

@@ -25,10 +25,23 @@ public class PlayerMovement : MonoBehaviour
 
     private Vector3 lastFootstepPosition;
     private Vector3 _velocity;
+    private Vector3 _slipVelocity;
 
     void Start()
     {
         lastFootstepPosition = transform.position;
+    }
+
+    public void ResetVelocity()
+    {
+        _velocity = Vector3.zero;
+    }
+
+    // Faz o jogador deslizar numa direção (ex: casca de banana). A velocidade é
+    // amortecida gradualmente até parar.
+    public void AddSlip(Vector3 force)
+    {
+        _slipVelocity += new Vector3(force.x, 0f, force.z);
     }
 
     void Update()
@@ -75,6 +88,13 @@ public class PlayerMovement : MonoBehaviour
 
             _velocity.y += gravity * Time.deltaTime;
             controller.Move(_velocity * Time.deltaTime);
+        }
+
+        // Slip (cascas de banana e afins) — desliza com amortecimento
+        if (controller != null && _slipVelocity.sqrMagnitude > 0.0001f)
+        {
+            _slipVelocity = Vector3.Lerp(_slipVelocity, Vector3.zero, Time.deltaTime * 3f);
+            controller.Move(_slipVelocity * Time.deltaTime);
         }
 
         // Animations

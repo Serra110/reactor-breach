@@ -8,12 +8,14 @@ public class GameManager : MonoBehaviour
 
     void Awake()
     {
-        Instance = this;
+        if (Instance == null)
+            Instance = this;
+        else if (Instance != this)
+            Destroy(gameObject);
     }
 
     public void AddMetal(int amount)
     {
         metal += amount;
-        Debug.Log("Metal: " + metal);
     }
 }

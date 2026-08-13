@@ -1,7 +1,4 @@
-// SaveData.cs
-// Estruturas serializáveis que representam um ficheiro de save.
-// SaveFile é o "envelope" gravado no disco; cada ISaveable guarda o seu
-// próprio pedaço de JSON dentro de uma SaveEntry.
+
 
 using System;
 using System.Collections.Generic;
@@ -9,33 +6,31 @@ using System.Collections.Generic;
 [Serializable]
 public class SaveFile
 {
-    public string saveName;      // nome do slot (ex: "save1")
-    public string dateTime;      // data/hora do save, para mostrar no menu
+    public string saveName;      
+    public string dateTime;     
     public List<SaveEntry> entries = new List<SaveEntry>();
 }
 
 [Serializable]
 public class SaveEntry
 {
-    public string id;    // corresponde ao GetUniqueId() do ISaveable
-    public string json;  // estado desse objeto, em JSON
+    public string id;    
+    public string json;  
 }
 
-// --- Estruturas específicas de exemplo ---
+
 
 [Serializable]
 public class PlayerStateData
 {
     public float posX, posY, posZ;
-    public float rotY; // rotação no eixo Y (ajusta se precisares dos 3 eixos)
+    public float rotY; 
 }
 
 [Serializable]
 public class InventoryStateData
 {
     public int mineralCount;
-    // Lista genérica para quando tiveres mais tipos de item no futuro.
-    // Por agora fica vazia, mas já está pronta a usar.
     public List<InventoryItemData> items = new List<InventoryItemData>();
 }
 
@@ -47,6 +42,34 @@ public class InventoryItemData
 }
 
 [Serializable]
+public class InventorySlotItemSave
+{
+    public string itemName;
+    public int amount;
+}
+
+[Serializable]
+public class InventorySlotSaveData
+{
+    public int panelSize;
+    public int hotbarSize;
+    public int selectedHotbar;
+    public List<InventorySlotItemSave> panel = new List<InventorySlotItemSave>();
+    public List<InventorySlotItemSave> hotbar = new List<InventorySlotItemSave>();
+}
+
+
+
+[Serializable]
+public class MachineSpawnData
+{
+    public string id;
+    public string machineType;
+    public float posX, posY, posZ;
+    public float rotY;
+}
+
+[Serializable]
 public class SaveData
 {
     public float playerPosX;
@@ -54,5 +77,7 @@ public class SaveData
     public float playerPosZ;
     public float playerRotY;
     public List<SaveEntry> entries = new List<SaveEntry>();
-}
 
+    // NOVO
+    public List<MachineSpawnData> machines = new List<MachineSpawnData>();
+}

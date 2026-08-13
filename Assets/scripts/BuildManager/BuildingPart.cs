@@ -32,27 +32,76 @@ namespace SimpleBuildingSystem
 
         private Renderer[] _renderers;
         private Material[][] _originalMaterials;
+        private Material[][] _previewMaterials;
 
         private void Awake()
         {
             _renderers = GetComponentsInChildren<Renderer>();
             _originalMaterials = new Material[_renderers.Length][];
+            _previewMaterials = new Material[_renderers.Length][];
             for (int i = 0; i < _renderers.Length; i++)
+            {
                 _originalMaterials[i] = _renderers[i].materials;
+                _previewMaterials[i] = new Material[_renderers[i].materials.Length];
+            }
         }
 
-        // Pinta a peça a verde/vermelho consoante a colocação seja válida ou não.
         public void SetPreviewState(bool valid)
         {
             Material mat = valid ? previewMaterialValid : previewMaterialInvalid;
-            if (mat == null) return;
-
-            foreach (var r in _renderers)
+            if (mat != null)
             {
-                Material[] mats = new Material[r.materials.Length];
-                for (int i = 0; i < mats.Length; i++) mats[i] = mat;
-                r.materials = mats;
+                for (int i = 0; i < _renderers.Length; i++)
+                {
+                    Material[] mats = _previewMaterials[i];
+                    for (int j = 0; j < mats.Length; j++) mats[j] = mat;
+                    _renderers[i].materials = mats;
+                }
+                return;
             }
+
+            ApplyPreviewColor(valid ? new Color(0f, 1f, 0f, 0.5f) : new Color(1f, 0f, 0f, 0.5f));
+        }
+
+        // FIX: fallback automático quando o prefab não tem previewMaterialValid/Invalid
+        // atribuídos. Cria uma cópia translúcida do material original do renderer (verde
+        // = válido, vermelho = inválido), funcionando tanto em URP como no pipeline
+        // clássico.
+        private void ApplyPreviewColor(Color tint)
+        {
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                Material[] mats = _renderers[i].materials;
+                for (int j = 0; j < mats.Length; j++)
+                {
+                    if (_previewMaterials[i][j] == null)
+                        _previewMaterials[i][j] = CreatePreviewCopy(mats[j]);
+
+                    var pm = _previewMaterials[i][j];
+                    if (pm.HasProperty("_BaseColor"))
+                        pm.SetColor("_BaseColor", tint);
+                    if (pm.HasProperty("_Color"))
+                        pm.SetColor("_Color", tint);
+                }
+                _renderers[i].materials = _previewMaterials[i];
+            }
+        }
+
+        private Material CreatePreviewCopy(Material original)
+        {
+            Material clone = new Material(original);
+            clone.name = original.name + " (Preview)";
+            clone.SetOverrideTag("RenderType", "Transparent");
+            clone.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            clone.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            clone.SetInt("_ZWrite", 0);
+            clone.DisableKeyword("_ALPHATEST_ON");
+            clone.EnableKeyword("_ALPHABLEND_ON");
+            clone.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            if (clone.HasProperty("_Surface"))
+                clone.SetFloat("_Surface", 1f);
+            clone.renderQueue = 3000;
+            return clone;
         }
 
         public void RestoreOriginalMaterials()

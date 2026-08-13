@@ -7,5 +7,6 @@ namespace SimpleBuildingSystem
     {
         public GameObject prefab;
         public int metalCost;
+        public ItemSO costItem;
     }
 }

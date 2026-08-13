@@ -18,14 +18,7 @@ public class PauseMenu : MonoBehaviour
             pauseUI.SetActive(false);
 
         if (cameraFollower == null)
-            cameraFollower = FindObjectOfType<CameraFollower>();
-
-        if (mineralsUI == null)
-        {
-            InventoryUI[] inventoryUIs = FindObjectsOfType<InventoryUI>(true);
-            if (inventoryUIs.Length > 0)
-                mineralsUI = inventoryUIs[0].gameObject;
-        }
+            cameraFollower = FindFirstObjectByType<CameraFollower>();
 
         SetupPauseButtons();
 
@@ -130,15 +123,6 @@ public class PauseMenu : MonoBehaviour
 
         if (mineralsUI != null)
             mineralsUI.SetActive(!paused);
-
-#pragma warning disable CS0618
-        InventoryUI[] inventoryUIs = FindObjectsOfType<InventoryUI>(true);
-#pragma warning restore CS0618
-        foreach (InventoryUI inventoryUI in inventoryUIs)
-        {
-            if (inventoryUI != null)
-                inventoryUI.gameObject.SetActive(!paused);
-        }
     }
 
     public void QuitGame()
@@ -149,7 +133,6 @@ public class PauseMenu : MonoBehaviour
     public void MainMenu()
     {
         Time.timeScale = 1f;
-        Debug.Log("Voltando para o MainMenu...");
         SceneManager.LoadScene("MainMenu");
     }
 }

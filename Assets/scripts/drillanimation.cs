@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class DrillMachine : MonoBehaviour
+public class DrillMachine : ElectricDevice
 {
     [Header("References")]
     public Transform drillBody;
@@ -26,15 +26,12 @@ public class DrillMachine : MonoBehaviour
     [Header("Production")]
     public float interval = 3f;
     public int metalPerTick = 1;
+    public ItemSO producedItem;
 
     [Header("Optional")]
     public bool requiresPower = false;
     public bool isPowered = true;
     public bool requiresSpinning = true;
-
-    [Header("Debug/Testing")]
-    public int debugAddMetal = 0;
-    public bool addToInventoryDebug = false;
 
     [Header("Placement")]
     public bool isPlaced = false;
@@ -48,27 +45,70 @@ public class DrillMachine : MonoBehaviour
     private float productionTimer;
     private bool isSpinning = false;
 
-    void Start()
+    public override void Start()
     {
+        base.Start();
+
         if (drillBody == null)
             drillBody = transform;
 
-        Vector3 pos = drillBody.localPosition;
-        pos.y = startY;
-        drillBody.localPosition = pos;
+        AlignToGround();
 
         spinSpeed = spinStartSpeed;
         productionTimer = 0f;
 
-        Debug.Log("DrillMachine started at position: " + transform.position + " | isPlaced: " + isPlaced);
-
-        // Se não tiver AudioSource, tenta criar um
         if (drillAudioSource == null)
             drillAudioSource = GetComponent<AudioSource>();
+    }
+
+    bool HasGridPower()
+    {
+        if (inputPorts == null || inputPorts.Count == 0)
+            return !requiresPower;
+
+        return isDeviceActive || totalInput > 0;
+    }
+
+    void AlignToGround()
+    {
+        // Raycast down from current position to find the ground
+        Ray ray = new Ray(transform.position + Vector3.up * 5f, Vector3.down);
+        if (Physics.Raycast(ray, out RaycastHit hit, 50f))
+        {
+            // Move the whole drill so its base sits on the ground
+            // We need to account for the bounds of the drill model
+            Renderer[] renderers = GetComponentsInChildren<Renderer>();
+            if (renderers.Length > 0)
+            {
+                Bounds bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++)
+                    bounds.Encapsulate(renderers[i].bounds);
+
+                float bottomOffset = transform.position.y - bounds.min.y;
+                Vector3 pos = transform.position;
+                pos.y = hit.point.y + bottomOffset;
+                transform.position = pos;
+            }
+        }
+
+        // Reset local Y to startY
+        Vector3 localPos = drillBody.localPosition;
+        localPos.y = startY;
+        drillBody.localPosition = localPos;
     }
  
     void Update()
     {
+        // SEM ENERGIA: a broca não desce, não roda e não produz.
+        // A rotação desacelera até parar (e o som também pára).
+        if (!HasGridPower())
+        {
+            spinSpeed = Mathf.Lerp(spinSpeed, 0f, Time.deltaTime * 2f);
+            isSpinning = spinSpeed > 10f;
+            HandleAudio();
+            return;
+        }
+
         switch (state)
         {
             case 0: StartDrop(); break;
@@ -80,7 +120,6 @@ public class DrillMachine : MonoBehaviour
         HandleSpin();
         HandleAudio();
         HandleProduction();
-        HandleDebug();
     }
     void StartDrop()
     {
@@ -146,26 +185,14 @@ public class DrillMachine : MonoBehaviour
 
     void HandleProduction()
     {
-        // Não faz nada se ainda não foi colocado no mundo
         if (!isPlaced)
-        {
-            Debug.Log("Production blocked: not placed");
             return;
-        }
 
-        // Energia (se quiseres usar depois)
-        if (requiresPower && !isPowered)
-        {
-            Debug.Log("Production blocked: no power");
+        if (!HasGridPower())
             return;
-        }
 
-        // Só produz se estiver a girar (se isso for obrigatório)
         if (requiresSpinning && !isSpinning)
-        {
-            Debug.Log("Production blocked: requires spinning but not spinning");
             return;
-        }
 
         productionTimer += Time.deltaTime;
 
@@ -178,40 +205,38 @@ public class DrillMachine : MonoBehaviour
 
     void Produce()
     {
-        Debug.Log("Produce() called - checking output targets");
-        
-        // prefer explicit output conveyor
+        string itemName = producedItem != null ? producedItem.itemName : "Metal";
+
         if (outputConveyor == null)
             outputConveyor = FindNearbyConveyor();
 
         if (outputConveyor != null)
         {
-            outputConveyor.AddItem("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> conveyor");
+            outputConveyor.AddItem(itemName, metalPerTick);
             return;
         }
 
-        // then explicit/nearby storage
         if (targetStorage == null)
             targetStorage = FindNearbyStorage();
 
         if (targetStorage != null)
         {
-            targetStorage.AddItem("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> storage");
+            targetStorage.AddItem(itemName, metalPerTick);
             return;
         }
 
-        // fallback to inventory
+        if (producedItem != null)
+        {
+            var inv = ReactorBreach.InventorySystem.Inventory.Instance;
+            if (inv != null)
+            {
+                inv.AddItem(producedItem, metalPerTick);
+                return;
+            }
+        }
+
         if (InventoryManager.Instance != null)
-        {
-            InventoryManager.Instance.AddResource("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> inventory");
-        }
-        else
-        {
-            Debug.LogWarning("Drill production failed: no conveyor, storage, or inventory!");
-        }
+            InventoryManager.Instance.AddResource(itemName, metalPerTick);
     }
 
     Conveyor FindNearbyConveyor(float radius = 1.5f)
@@ -258,25 +283,5 @@ public class DrillMachine : MonoBehaviour
     {
         isPlaced = true;
         productionTimer = 0f;
-    }
-
-    void HandleDebug()
-    {
-        if (debugAddMetal > 0 && addToInventoryDebug)
-        {
-            if (InventoryManager.Instance != null)
-            {
-                InventoryManager.Instance.AddResource("Metal", debugAddMetal);
-                Debug.Log("Debug: Added " + debugAddMetal + " Metal to inventory");
-            }
-            else
-            {
-                Debug.LogWarning("InventoryManager not found!");
-            }
-
-            // Reset
-            debugAddMetal = 0;
-            addToInventoryDebug = false;
-        }
     }
 }

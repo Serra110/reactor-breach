@@ -10,14 +10,17 @@ namespace SimpleBuildingSystem
 
         private Renderer[] _renderers;
         private Material[][] _originalMaterials;
+        private Material[][] _previewMaterials;
 
         private void Awake()
         {
             _renderers = GetComponentsInChildren<Renderer>();
             _originalMaterials = new Material[_renderers.Length][];
+            _previewMaterials = new Material[_renderers.Length][];
             for (int i = 0; i < _renderers.Length; i++)
             {
                 _originalMaterials[i] = _renderers[i].materials;
+                _previewMaterials[i] = new Material[_renderers[i].materials.Length];
             }
         }
 
@@ -30,12 +33,12 @@ namespace SimpleBuildingSystem
             if (previewMaterial == null)
                 return;
 
-            foreach (var renderer in _renderers)
+            for (int i = 0; i < _renderers.Length; i++)
             {
-                Material[] mats = new Material[renderer.materials.Length];
-                for (int i = 0; i < mats.Length; i++)
-                    mats[i] = previewMaterial;
-                renderer.materials = mats;
+                Material[] mats = _previewMaterials[i];
+                for (int j = 0; j < mats.Length; j++)
+                    mats[j] = previewMaterial;
+                _renderers[i].materials = mats;
             }
         }
 

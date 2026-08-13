@@ -24,6 +24,14 @@ namespace SimpleBuildingSystem
             if (collider.transform.IsChildOf(transform))
                 return true;
 
+            // FIX: ignora sempre o preview ativo (qualquer objeto com BuildingPart em
+            // modo preview). Sem isto, objetos grandes (ex: generator) ficavam "presos"
+            // no sítio onde nasciam, porque o raycast acertava nos colliders do próprio
+            // ghost em vez do chão/parede.
+            var part = collider.GetComponentInParent<BuildingPart>();
+            if (part != null && part.isPreview)
+                return true;
+
             Camera mainCamera = Camera.main;
             if (mainCamera != null && collider.transform.IsChildOf(mainCamera.transform))
                 return true;

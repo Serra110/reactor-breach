@@ -1,10 +1,17 @@
 using UnityEngine;
 
-public class MiningDrill : MonoBehaviour
+public class MiningDrill : ElectricDevice
 {
     [Header("Production")]
     public float interval = 3f;
     public int metalPerTick = 1;
+    public ItemSO producedItem;
+    [Tooltip("Raio de procura por depósitos de minério próximos (mundo)")]
+    public float oreSearchRadius = 3f;
+    [Tooltip("Se true, o drill pára permanentemente quando o depósito local esgota")]
+    public bool stopWhenEmpty = true;
+
+    private bool isFinished = false;
 
     private float timer;
 
@@ -19,55 +26,95 @@ public class MiningDrill : MonoBehaviour
     public Conveyor outputConveyor;
     public Storage targetStorage;
 
+    public override void Start()
+    {
+        base.Start();
+    }
+
+    bool HasGridPower()
+    {
+        if (inputPorts == null || inputPorts.Count == 0)
+            return !requiresPower;
+
+        return isDeviceActive || totalInput > 0;
+    }
+
     void Update()
     {
+        if (isFinished) return;
         //  Não faz nada se ainda não foi colocado no mundo
         if (!isPlaced)
             return;
 
-        // Energia (se quiseres usar depois)
-        if (requiresPower && !isPowered)
+        // Energia: se estiver ligado à rede, só trabalha com energia
+        if (!HasGridPower())
             return;
 
         timer += Time.deltaTime;
 
         if (timer >= interval)
         {
+            // Verifica existência de depósito próximo antes de produzir
+            var deposit = FindNearbyOreDeposit(oreSearchRadius);
+            if (deposit == null)
+            {
+                timer = 0f;
+                return;
+            }
+
+            if (!deposit.HasResourcesLeft())
+            {
+                if (stopWhenEmpty)
+                {
+                    isFinished = true;
+                    isPlaced = false;
+                }
+                timer = 0f;
+                return;
+            }
+
             timer = 0f;
-            Produce();
+            Produce(deposit);
         }
     }
 
-    void Produce()
+    void Produce(OreDeposit deposit)
     {
-        // prefer explicit output conveyor
+        string itemName = producedItem != null ? producedItem.itemName : "Metal";
+
+        if (deposit != null)
+            deposit.Extract(metalPerTick);
+
         if (outputConveyor == null)
             outputConveyor = FindNearbyConveyor();
 
         if (outputConveyor != null)
         {
-            outputConveyor.AddItem("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> conveyor");
+            outputConveyor.AddItem(itemName, metalPerTick);
             return;
         }
 
-        // then explicit/nearby storage
         if (targetStorage == null)
             targetStorage = FindNearbyStorage();
 
         if (targetStorage != null)
         {
-            targetStorage.AddItem("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> storage");
+            targetStorage.AddItem(itemName, metalPerTick);
             return;
         }
 
-        // fallback to inventory
-        if (InventoryManager.Instance != null)
+        if (producedItem != null)
         {
-            InventoryManager.Instance.AddResource("Metal", metalPerTick);
-            Debug.Log("Drill produced " + metalPerTick + " Metal -> inventory");
+            var inv = ReactorBreach.InventorySystem.Inventory.Instance;
+            if (inv != null)
+            {
+                inv.AddItem(producedItem, metalPerTick);
+                return;
+            }
         }
+
+        if (InventoryManager.Instance != null)
+            InventoryManager.Instance.AddResource(itemName, metalPerTick);
     }
 
     Conveyor FindNearbyConveyor(float radius = 1.5f)
@@ -91,6 +138,19 @@ public class MiningDrill : MonoBehaviour
             var storage = c.GetComponentInParent<Storage>();
             if (storage != null)
                 return storage;
+        }
+
+        return null;
+    }
+
+    OreDeposit FindNearbyOreDeposit(float radius = 3f)
+    {
+        Collider[] cols = Physics.OverlapSphere(transform.position, radius);
+        foreach (var c in cols)
+        {
+            var deposit = c.GetComponentInParent<OreDeposit>();
+            if (deposit != null && deposit.IsWithinRange(transform.position))
+                return deposit;
         }
 
         return null;

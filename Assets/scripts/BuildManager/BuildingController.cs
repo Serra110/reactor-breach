@@ -33,7 +33,7 @@ namespace SimpleBuildingSystem
             // ensure we have an ActiveView; prefer existing, else try to find or create a first-person view
             if (ActiveView == null)
             {
-                ActiveView = FindObjectOfType<BuildingView>();
+                ActiveView = FindFirstObjectByType<BuildingView>();
                 if (ActiveView == null)
                 {
                     var go = new GameObject("FirstPersonBuildingView");
@@ -63,6 +63,7 @@ namespace SimpleBuildingSystem
 
         public void RequestPlacementMode()
         {
+            Debug.Log($"[BuildingController] RequestPlacementMode | buildItems={(buildItems == null ? "NULL" : buildItems.Length.ToString())} | ActiveView={(ActiveView == null ? "NULL" : ActiveView.name)}");
             if (buildItems == null || buildItems.Length == 0)
             {
                 Debug.LogWarning("[BuildingController] Nenhum item de construção definido.");
@@ -116,9 +117,23 @@ namespace SimpleBuildingSystem
             if (buildItems == null || buildItems.Length == 0)
                 return;
 
+            int oldIndex = currentBuildIndex;
             currentBuildIndex = (currentBuildIndex + direction) % buildItems.Length;
             if (currentBuildIndex < 0)
                 currentBuildIndex += buildItems.Length;
+
+            var item = GetCurrentBuildItem();
+            bool rebuild = oldIndex != currentBuildIndex && CurrentState is PlacementState && item != null && item.prefab != null;
+            Debug.Log($"[BuildingController] SelectNextBuildItem idx={currentBuildIndex} item={(item == null ? "NULL" : (item.prefab == null ? "prefabNULL" : item.prefab.name))} rebuild={rebuild}");
+
+            // FIX: se o jogador está em modo placement e troca de item, o preview tem de
+            // ser recriado com o novo prefab. Antes, só mudava o índice silenciosamente
+            // e o ghost continuava a mostrar o item antigo.
+            if (oldIndex != currentBuildIndex && CurrentState is PlacementState)
+            {
+                if (item != null && item.prefab != null)
+                    ChangeState(new PlacementState(this, item));
+            }
         }
 
         public BuildItemCost GetCurrentBuildItem()

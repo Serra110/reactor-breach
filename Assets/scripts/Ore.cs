@@ -1,41 +1,64 @@
+using Mirror;
+using ReactorBreach.InventorySystem;
 using UnityEngine;
 
 public class Ore : MonoBehaviour
 {
-    public string resourceName = "Metal";
+    public ItemSO item;
     public int amount = 10;
 
     public void Collect()
     {
-        // try conveyor first
-        Collider[] cols = Physics.OverlapSphere(transform.position, 2f);
-        foreach (var c in cols)
+        Collect(Inventory.Instance);
+    }
+
+    public void Collect(Inventory inventory)
+    {
+        Collider[] colliders = Physics.OverlapSphere(transform.position, 2f);
+
+        foreach (Collider collider in colliders)
         {
-            var conveyor = c.GetComponentInParent<Conveyor>();
+            Conveyor conveyor = collider.GetComponentInParent<Conveyor>();
             if (conveyor != null)
             {
-                conveyor.AddItem(resourceName, amount);
-                Destroy(gameObject);
+                conveyor.AddItem(item != null ? item.itemName : "Metal", amount);
+                DestroyCollectedObject();
                 return;
             }
         }
 
-        // then storage
-        foreach (var c in cols)
+        foreach (Collider collider in colliders)
         {
-            var storage = c.GetComponentInParent<Storage>();
+            Storage storage = collider.GetComponentInParent<Storage>();
             if (storage != null)
             {
-                storage.AddItem(resourceName, amount);
-                Destroy(gameObject);
+                storage.AddItem(item != null ? item.itemName : "Metal", amount);
+                DestroyCollectedObject();
                 return;
             }
         }
 
-        // fallback to player inventory
-        if (InventoryManager.Instance != null)
-            InventoryManager.Instance.AddResource(resourceName, amount);
+        if (inventory != null && item != null)
+        {
+            int remaining = inventory.AddItem(item, amount);
+            if (remaining < amount)
+            {
+                amount = remaining;
+                if (amount <= 0)
+                    DestroyCollectedObject();
+                return;
+            }
+        }
 
-        Destroy(gameObject);
+        DestroyCollectedObject();
+    }
+
+    private void DestroyCollectedObject()
+    {
+        NetworkIdentity identity = GetComponent<NetworkIdentity>();
+        if (NetworkServer.active && identity != null && identity.isServer)
+            NetworkServer.Destroy(gameObject);
+        else
+            Destroy(gameObject);
     }
 }

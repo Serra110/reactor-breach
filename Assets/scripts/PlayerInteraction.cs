@@ -20,11 +20,37 @@ public class PlayerInteraction : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, interactDistance))
         {
-            Ore ore = hit.collider.GetComponent<Ore>();
+            Item worldItem = hit.collider.GetComponentInParent<Item>();
+            if (worldItem != null && worldItem.item != null && worldItem.CanPickup())
+            {
+                var inventory = ReactorBreach.InventorySystem.Inventory.Instance;
+                if (inventory != null)
+                {
+                    inventory.AddItem(worldItem.item, worldItem.amount);
+                    Destroy(worldItem.gameObject);
+                }
+                return;
+            }
 
+            Ore ore = hit.collider.GetComponentInParent<Ore>();
             if (ore != null)
             {
                 ore.Collect();
+                return;
+            }
+
+            SmelterController smelter = hit.collider.GetComponentInParent<SmelterController>();
+            if (smelter != null)
+            {
+                smelter.Interact();
+                return;
+            }
+
+            Storage storage = hit.collider.GetComponentInParent<Storage>();
+            if (storage != null)
+            {
+                storage.WithdrawAllToInventory();
+                return;
             }
         }
     }
