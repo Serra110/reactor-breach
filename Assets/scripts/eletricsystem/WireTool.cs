@@ -20,9 +20,6 @@ public class WireTool : NetworkBehaviour
 
     private void Update()
     {
-        if (!NetworkClient.active)
-            return;
-
         DetectPort();
         EnsureTemporaryWire();
 
@@ -110,7 +107,7 @@ public class WireTool : NetworkBehaviour
 
         if (detectedPort != null)
         {
-            if (detectedPort.isConnected)
+            if (!detectedPort.CanAcceptConnection(tempWire))
                 return;
             if (detectedPort.type == PortType.Input && tempWire.inputPort != null)
                 return;
@@ -216,7 +213,7 @@ public class WireTool : NetworkBehaviour
             return;
         if (inputPort.type != PortType.Input || outputPort.type != PortType.Output)
             return;
-        if (inputPort.isConnected || outputPort.isConnected || wirePrefab == null)
+        if (!inputPort.CanAcceptConnection(null) || !outputPort.CanAcceptConnection(null) || wirePrefab == null)
             return;
 
         Wire newWire = Instantiate(wirePrefab, Vector3.zero, Quaternion.identity);

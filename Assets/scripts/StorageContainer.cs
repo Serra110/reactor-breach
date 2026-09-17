@@ -6,7 +6,7 @@ public class Storage : MonoBehaviour
     [Header("Settings")]
     public int maxStorage = 200;
     public float interactRange = 3f;
-    public bool enableDebugKeys = true;
+    public bool enableDebugKeys = false;
     public int debugDepositAmount = 1;
     public int debugWithdrawAmount = 1;
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using ReactorBreach.InventorySystem;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public enum QuotaProgressMode
 {
@@ -82,9 +83,19 @@ public class QuotaSystem : MonoBehaviour
     public QuotaState State => state;
     public string TargetName => targetItem != null ? targetItem.itemName : targetItemName;
 
+    private const string OfflineGameplaySceneName = "scene2";
+    private const string OnlineGameplaySceneName = "gameonline";
+
+    private static bool IsQuotaScene()
+    {
+        string sceneName = SceneManager.GetActiveScene().name;
+        return sceneName == OfflineGameplaySceneName || sceneName == OnlineGameplaySceneName;
+    }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
+        if (!IsQuotaScene()) return;
         if (FindFirstObjectByType<QuotaSystem>() != null) return;
         GameObject quotaObject = new GameObject("Quota System");
         quotaObject.AddComponent<QuotaSystem>();
@@ -92,6 +103,12 @@ public class QuotaSystem : MonoBehaviour
 
     private void Awake()
     {
+        if (!IsQuotaScene())
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);

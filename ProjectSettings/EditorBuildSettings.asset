@@ -5,12 +5,6 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 0
-    path: Assets/SplashScreen.unity
-    guid: 5cffb4d03e4fd704c8ff676e3fb53892
   - enabled: 1
     path: Assets/TitleScreen.unity
     guid: fcf3ea55574f12a4d954c11cf5707f6c
@@ -18,11 +12,14 @@ EditorBuildSettings:
     path: Assets/MainMenu.unity
     guid: f06a6444b32282a4682c3aa3a2eeb472
   - enabled: 1
-    path: Assets/scene2.unity
+    path: Assets/gameonline.unity
     guid: 40e5aaae268e78e4387f49294089a506
-  - enabled: 0
-    path: Assets/NetworkTest.unity
-    guid: 65ad2067be547bf4d91a2ddd6737baf3
+  - enabled: 1
+    path: Assets/lobbyonline.unity
+    guid: 6f36ed1c3a8083b43b156e7ece5c2051
+  - enabled: 1
+    path: Assets/scene2.unity
+    guid: 9d44298b4f67a2b4383f51a06d71a7de
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

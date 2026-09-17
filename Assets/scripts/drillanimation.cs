@@ -67,7 +67,8 @@ public class DrillMachine : ElectricDevice
             return !requiresPower;
 
         return isDeviceActive || totalInput > 0;
-    }
+    }        
+    
 
     void AlignToGround()
     {

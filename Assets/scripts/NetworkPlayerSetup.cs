@@ -42,24 +42,26 @@ public sealed class NetworkPlayerSetup : NetworkBehaviour
 
     private void SetOwnerOnlyComponents(bool enabledForOwner)
     {
-        if (legacyMovement != null)
-            legacyMovement.enabled = false;
-        if (interaction != null)
-            interaction.enabled = false;
-        if (deviceDetector != null)
-            deviceDetector.enabled = enabledForOwner;
-        if (cameraFollower != null)
-            cameraFollower.enabled = enabledForOwner;
-        if (playerCamera != null)
-            playerCamera.enabled = enabledForOwner;
-        if (audioListener != null)
-            audioListener.enabled = enabledForOwner;
-        if (buildingInput != null)
-            buildingInput.enabled = enabledForOwner;
-        if (buildingController != null)
-            buildingController.enabled = enabledForOwner;
+        bool offlineMode = !NetworkClient.active && !NetworkServer.active;
 
-        if (enabledForOwner)
+        if (legacyMovement != null)
+            legacyMovement.enabled = offlineMode;
+        if (interaction != null)
+            interaction.enabled = offlineMode;
+        if (deviceDetector != null)
+            deviceDetector.enabled = enabledForOwner || offlineMode;
+        if (cameraFollower != null)
+            cameraFollower.enabled = enabledForOwner || offlineMode;
+        if (playerCamera != null)
+            playerCamera.enabled = enabledForOwner || offlineMode;
+        if (audioListener != null)
+            audioListener.enabled = enabledForOwner || offlineMode;
+        if (buildingInput != null)
+            buildingInput.enabled = enabledForOwner || offlineMode;
+        if (buildingController != null)
+            buildingController.enabled = enabledForOwner || offlineMode;
+
+        if (enabledForOwner || offlineMode)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;

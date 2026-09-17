@@ -140,7 +140,7 @@ public class Slot : MonoBehaviour,
     public void OnPointerEnter(PointerEventData eventData)
     {
         hovering = true;
-        Debug.Log($"[Slot] PointerEnter {gameObject.name} idx={slotIndex} hotbar={isHotbar} at={eventData.position} screen={Screen.width}x{Screen.height}");
+        if (DebugFlags.uiLogs) Debug.Log($"[Slot] PointerEnter {gameObject.name} idx={slotIndex} hotbar={isHotbar}");
         if (slotImage != null && highlightMaterial != null && !isSelected)
             slotImage.material = highlightMaterial;
     }
@@ -148,14 +148,14 @@ public class Slot : MonoBehaviour,
     public void OnPointerExit(PointerEventData eventData)
     {
         hovering = false;
-        Debug.Log($"[Slot] PointerExit {gameObject.name} idx={slotIndex} hotbar={isHotbar}");
+        if (DebugFlags.uiLogs) Debug.Log($"[Slot] PointerExit {gameObject.name} idx={slotIndex} hotbar={isHotbar}");
         if (slotImage != null && !isSelected)
             slotImage.material = normalMaterial;
     }
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        Debug.Log($"[Slot] PointerClick {gameObject.name} idx={slotIndex} hotbar={isHotbar} button={eventData.button}");
+        if (DebugFlags.uiLogs) Debug.Log($"[Slot] PointerClick {gameObject.name} idx={slotIndex} hotbar={isHotbar} button={eventData.button}");
         if (parentInventory == null || slotIndex < 0) return;
 
         if (eventData.button == PointerEventData.InputButton.Right)
@@ -178,9 +178,8 @@ public class Slot : MonoBehaviour,
     {
         if (heldItem == null || parentInventory == null) return;
 
-        Debug.Log($"[Slot] OnBeginDrag: {heldItem.itemName} from slot {slotIndex}");
+        if (DebugFlags.uiLogs) Debug.Log($"[Slot] OnBeginDrag: {heldItem.itemName} from slot {slotIndex}");
 
-        ReactorBreach.InventorySystem.InventorySlot._dragFromIndex = -1;
         _dragFromIndex = slotIndex;
         _dragFromHotbar = isHotbar;
 
@@ -217,14 +216,13 @@ public class Slot : MonoBehaviour,
         if (_dragIconGO != null) Destroy(_dragIconGO);
         _dragFromIndex = -1;
         _dragFromHotbar = false;
-        ReactorBreach.InventorySystem.InventorySlot._dragFromIndex = -1;
         _dragFromSmelterSlot = null;
         if (parentInventory != null) parentInventory.RefreshAllSlotUIs();
     }
 
     public void OnDrop(PointerEventData eventData)
     {
-        Debug.Log($"[Slot] OnDrop on {gameObject.name} | _dragFromIndex={_dragFromIndex} | _dragFromHotbar={_dragFromHotbar} | targetIndex={slotIndex} | isHotbar={isHotbar} | smelterDrag={(Slot._dragFromSmelterSlot != null ? Slot._dragFromSmelterSlot.gameObject.name : "NULL")}");
+        if (DebugFlags.uiLogs) Debug.Log($"[Slot] OnDrop on {gameObject.name} | _dragFromIndex={_dragFromIndex} | _dragFromHotbar={_dragFromHotbar} | targetIndex={slotIndex} | isHotbar={isHotbar} | smelterDrag={(Slot._dragFromSmelterSlot != null ? Slot._dragFromSmelterSlot.gameObject.name : "NULL")}");
 
         if (Slot._dragFromSmelterSlot != null && Slot._dragFromSmelterSlot.slotType == SmelterSlotUI.SlotType.Output)
         {
@@ -242,7 +240,7 @@ public class Slot : MonoBehaviour,
 
         if (_dragFromIndex < 0 || parentInventory == null)
         {
-            Debug.Log($"[Slot] OnDrop blocked on {gameObject.name} | parentNull={parentInventory == null} | _dragFromIndex={_dragFromIndex} | slotIndex={slotIndex}");
+            if (DebugFlags.uiLogs) Debug.Log($"[Slot] OnDrop blocked on {gameObject.name} | parentNull={parentInventory == null} | _dragFromIndex={_dragFromIndex} | slotIndex={slotIndex}");
             return;
         }
 

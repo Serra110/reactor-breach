@@ -1,11 +1,19 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(100)]
 public class Wire : MonoBehaviour
 {
     public Port inputPort;
     public Port outputPort;
     public LineRenderer line;
+
+    private void Start()
+    {
+        if (inputPort != null && outputPort != null)
+            CreateConnection();
+    }
+
 
     private bool isConnected;
 
@@ -13,30 +21,12 @@ public class Wire : MonoBehaviour
     {
         if (inputPort == null || outputPort == null)
         {
-            Debug.LogWarning("[Wire] CreateConnection: inputPort/outputPort não atribuídos!");
+            Debug.LogWarning("[Wire] CreateConnection requires both ports.");
             return;
         }
 
-        if (!isConnected)
-        {
-            isConnected = true;
-            inputPort.isConnected = true;
-            outputPort.isConnected = true;
-
-            inputPort.connectedWire = this;
-            outputPort.connectedWire = this;
-
-            outputPort.onValueChanged += inputPort.SetValue;
-        }
-
-        inputPort.SetValue(outputPort.value);
-
-        if (line != null)
-        {
-            line.positionCount = 2;
-            line.SetPosition(0, inputPort.transform.position);
-            line.SetPosition(1, outputPort.transform.position);
-        }
+        ConnectPorts(inputPort, outputPort);
+        UpdateLine(null);
     }
 
     public void CreateConnection(Port inputPort, Port outputPort, List<Vector3> points)
@@ -47,42 +37,62 @@ public class Wire : MonoBehaviour
         if (inputPort == null || outputPort == null)
             return;
 
+        ConnectPorts(inputPort, outputPort);
+        UpdateLine(points);
+    }
+
+    private void ConnectPorts(Port input, Port output)
+    {
+        if (!CanConnect(input, output))
+        {
+            Debug.LogWarning("[Wire] One of the ports already has an incompatible connection.");
+            return;
+        }
+
         if (!isConnected)
         {
             isConnected = true;
-            inputPort.isConnected = true;
-            outputPort.isConnected = true;
-
-            inputPort.connectedWire = this;
-            outputPort.connectedWire = this;
-
-            outputPort.onValueChanged += inputPort.SetValue;
+            input.RegisterConnection(this);
+            output.RegisterConnection(this);
+            output.onValueChanged += input.ReceiveValue;
         }
 
-        inputPort.SetValue(outputPort.value);
+        input.SetValue(output.value);
+    }
 
+    private static bool CanConnect(Port input, Port output)
+    {
+        return input != null
+            && output != null
+            && input.type == PortType.Input
+            && output.type == PortType.Output
+            && input.CanAcceptConnection(null)
+            && output.CanAcceptConnection(null);
+    }
+
+    private void UpdateLine(List<Vector3> points)
+    {
         if (line == null)
+        {
             line = gameObject.AddComponent<LineRenderer>();
-
-        if (line.material == null)
             line.material = new Material(Shader.Find("Sprites/Default"));
-
-        line.startWidth = 0.05f;
-        line.endWidth = 0.05f;
+            line.startWidth = 0.05f;
+            line.endWidth = 0.05f;
+        }
 
         if (points != null && points.Count > 0)
         {
             line.positionCount = points.Count;
             line.SetPositions(points.ToArray());
-        }
-        else
-        {
-            line.positionCount = 2;
-            line.SetPosition(0, inputPort.transform.position);
-            line.SetPosition(1, outputPort.transform.position);
+            return;
         }
 
-        Debug.Log($"[Wire] Cabo criado e desenhado. points={points?.Count} line={line != null}");
+        if (inputPort == null || outputPort == null)
+            return;
+
+        line.positionCount = 2;
+        line.SetPosition(0, inputPort.transform.position);
+        line.SetPosition(1, outputPort.transform.position);
     }
 
     public bool CanCreatConnection()
@@ -102,16 +112,14 @@ public class Wire : MonoBehaviour
 
     public void ResetWire()
     {
-        if (inputPort != null && outputPort != null)
-        {
-            outputPort.onValueChanged -= inputPort.SetValue;
-        }
+        if (isConnected && inputPort != null && outputPort != null)
+            outputPort.onValueChanged -= inputPort.ReceiveValue;
 
-        if (inputPort != null) inputPort.isConnected = false;
-        if (outputPort != null) outputPort.isConnected = false;
+        if (inputPort != null)
+            inputPort.UnregisterConnection(this);
 
-        if (inputPort != null && inputPort.connectedWire == this) inputPort.connectedWire = null;
-        if (outputPort != null && outputPort.connectedWire == this) outputPort.connectedWire = null;
+        if (outputPort != null)
+            outputPort.UnregisterConnection(this);
 
         inputPort = null;
         outputPort = null;
@@ -129,14 +137,11 @@ public class Wire : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (isConnected && outputPort != null && inputPort != null)
-        {
-            outputPort.onValueChanged -= inputPort.SetValue;
+        if (!isConnected || inputPort == null || outputPort == null)
+            return;
 
-            if (inputPort.connectedWire == this) inputPort.connectedWire = null;
-            if (outputPort.connectedWire == this) outputPort.connectedWire = null;
-            inputPort.isConnected = false;
-            outputPort.isConnected = false;
-        }
+        outputPort.onValueChanged -= inputPort.ReceiveValue;
+        inputPort.UnregisterConnection(this);
+        outputPort.UnregisterConnection(this);
     }
 }

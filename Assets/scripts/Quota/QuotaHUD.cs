@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class QuotaHUD : MonoBehaviour
@@ -36,9 +37,19 @@ public class QuotaHUD : MonoBehaviour
     private Sprite lastIcon;
     private float lastTimerSecond = -1f;
 
+    private const string OfflineGameplaySceneName = "scene2";
+    private const string OnlineGameplaySceneName = "gameonline";
+
+    private static bool IsQuotaScene()
+    {
+        string sceneName = SceneManager.GetActiveScene().name;
+        return sceneName == OfflineGameplaySceneName || sceneName == OnlineGameplaySceneName;
+    }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
+        if (!IsQuotaScene()) return;
         if (FindFirstObjectByType<QuotaHUD>() != null) return;
         GameObject hudObject = new GameObject("Quota HUD");
         hudObject.AddComponent<QuotaHUD>();
@@ -46,6 +57,12 @@ public class QuotaHUD : MonoBehaviour
 
     private void Start()
     {
+        if (!IsQuotaScene())
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         quota = QuotaSystem.Instance != null ? QuotaSystem.Instance : FindFirstObjectByType<QuotaSystem>();
         BuildInterface();
         if (quota != null)
@@ -102,20 +119,21 @@ public class QuotaHUD : MonoBehaviour
     {
         Canvas canvas = gameObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 200;
+        canvas.sortingOrder = 50;
         gameObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         gameObject.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1920f, 1080f);
         gameObject.AddComponent<GraphicRaycaster>();
 
         GameObject outer = CreateUIObject("Quota Panel", transform);
         RectTransform outerRect = outer.GetComponent<RectTransform>();
-        outerRect.anchorMin = new Vector2(0f, 1f);
-        outerRect.anchorMax = new Vector2(0f, 1f);
-        outerRect.pivot = new Vector2(0f, 1f);
-        outerRect.anchoredPosition = new Vector2(32f, -32f);
-        outerRect.sizeDelta = new Vector2(470f, 132f);
+        outerRect.anchorMin = new Vector2(1f, 1f);
+        outerRect.anchorMax = new Vector2(1f, 1f);
+        outerRect.pivot = new Vector2(1f, 1f);
+        outerRect.anchoredPosition = new Vector2(-24f, -168f);
+        outerRect.sizeDelta = new Vector2(360f, 96f);
         borderImage = outer.AddComponent<Image>();
         borderImage.color = borderColor;
+        borderImage.raycastTarget = false;
         pulseTransform = outerRect;
 
         GameObject inner = CreateUIObject("Quota Background", outer.transform);
@@ -126,36 +144,40 @@ public class QuotaHUD : MonoBehaviour
         innerRect.offsetMax = new Vector2(-2f, -2f);
         panelImage = inner.AddComponent<Image>();
         panelImage.color = normalColor;
+        panelImage.raycastTarget = false;
 
         GameObject icon = CreateUIObject("Quota Icon", inner.transform);
         RectTransform iconRect = icon.GetComponent<RectTransform>();
         iconRect.anchorMin = new Vector2(0f, 0.5f);
         iconRect.anchorMax = new Vector2(0f, 0.5f);
         iconRect.pivot = new Vector2(0f, 0.5f);
-        iconRect.anchoredPosition = new Vector2(18f, 0f);
-        iconRect.sizeDelta = new Vector2(76f, 76f);
+        iconRect.anchoredPosition = new Vector2(12f, 0f);
+        iconRect.sizeDelta = new Vector2(56f, 56f);
         iconImage = icon.AddComponent<Image>();
         iconImage.preserveAspect = true;
+        iconImage.raycastTarget = false;
 
-        titleText = CreateText("Quota Title", inner.transform, new Vector2(112f, -16f), new Vector2(330f, 30f), 22f, TextAlignmentOptions.Left);
-        countText = CreateText("Quota Count", inner.transform, new Vector2(112f, -52f), new Vector2(330f, 27f), 19f, TextAlignmentOptions.Left);
-        timerText = CreateText("Quota Timer", inner.transform, new Vector2(330f, -16f), new Vector2(125f, 30f), 19f, TextAlignmentOptions.Right);
+        titleText = CreateText("Quota Title", inner.transform, new Vector2(82f, -12f), new Vector2(250f, 24f), 17f, TextAlignmentOptions.Left);
+        countText = CreateText("Quota Count", inner.transform, new Vector2(82f, -39f), new Vector2(250f, 22f), 15f, TextAlignmentOptions.Left);
+        timerText = CreateText("Quota Timer", inner.transform, new Vector2(248f, -12f), new Vector2(96f, 24f), 15f, TextAlignmentOptions.Right);
 
         GameObject barObject = CreateUIObject("Quota Progress Bar", inner.transform);
         RectTransform barRect = barObject.GetComponent<RectTransform>();
         barRect.anchorMin = new Vector2(0f, 0f);
         barRect.anchorMax = new Vector2(1f, 0f);
-        barRect.offsetMin = new Vector2(112f, 18f);
-        barRect.offsetMax = new Vector2(-16f, 42f);
+        barRect.offsetMin = new Vector2(82f, 14f);
+        barRect.offsetMax = new Vector2(-14f, 32f);
         progressBar = barObject.AddComponent<Slider>();
         progressBar.minValue = 0f;
         progressBar.maxValue = 1f;
         progressBar.interactable = false;
         Image barBackground = barObject.AddComponent<Image>();
         barBackground.color = new Color(0f, 0f, 0f, 0.35f);
+        barBackground.raycastTarget = false;
         GameObject fill = CreateUIObject("Fill", barObject.transform);
         fillImage = fill.AddComponent<Image>();
         fillImage.color = fillNormal;
+        fillImage.raycastTarget = false;
         progressBar.fillRect = fill.GetComponent<RectTransform>();
         progressBar.fillRect.anchorMin = Vector2.zero;
         progressBar.fillRect.anchorMax = Vector2.one;
@@ -163,7 +185,7 @@ public class QuotaHUD : MonoBehaviour
         progressBar.fillRect.offsetMax = Vector2.zero;
         progressBar.direction = Slider.Direction.LeftToRight;
 
-        bannerText = CreateText("Quota Banner", transform, new Vector2(0f, -200f), new Vector2(820f, 70f), 34f, TextAlignmentOptions.Center);
+        bannerText = CreateText("Quota Banner", transform, new Vector2(0f, -136f), new Vector2(600f, 48f), 22f, TextAlignmentOptions.Center);
         bannerText.rectTransform.anchorMin = new Vector2(0.5f, 1f);
         bannerText.rectTransform.anchorMax = new Vector2(0.5f, 1f);
         bannerText.rectTransform.pivot = new Vector2(0.5f, 1f);
@@ -184,6 +206,7 @@ public class QuotaHUD : MonoBehaviour
         text.fontSize = fontSize;
         text.alignment = alignment;
         text.color = Color.white;
+        text.raycastTarget = false;
         text.overflowMode = TextOverflowModes.Overflow;
         return text;
     }

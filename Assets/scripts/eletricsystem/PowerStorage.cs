@@ -36,7 +36,7 @@ public class PowerStorage : EletricUnit
                 if (outputPort != null)
                     outputPort.SetValue(currentOutput);
 
-                Debug.Log($"[PowerStorage] storage={currentStorageAmount} incoming={incoming} cost={connectedCost} output={currentOutput}");
+                if (DebugFlags.electricLogs) Debug.Log($"[PowerStorage] storage={currentStorageAmount} incoming={incoming} cost={connectedCost} output={currentOutput}");
             }
             catch (System.Exception e)
             {
@@ -144,6 +144,7 @@ public class PowerStorage : EletricUnit
     public override void OnDetected()
     {
         base.OnDetected();
-        ElectricUI1.instance.ShowStorageDataPanel(unitName, currentStorageAmount.ToString(), maxCapacity.ToString(), maxOutput.ToString());
+        if (ElectricUI1.instance != null)
+            ElectricUI1.instance.ShowStorageDataPanel(unitName, currentStorageAmount.ToString(), maxCapacity.ToString(), maxOutput.ToString());
     }
 }

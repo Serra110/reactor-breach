@@ -7,7 +7,7 @@ public class NeonLight : ElectricDevice
 
     public GameObject lightObject;
     private Renderer lightRenderer;
-    public Light light;
+    public new Light light;
     public Color lightColor;
 
     public Material emissionOnMaterial;
@@ -17,7 +17,8 @@ public class NeonLight : ElectricDevice
     {
         base.Start();
 
-        lightRenderer = lightObject.GetComponent<Renderer>();
+        if (lightObject != null)
+            lightRenderer = lightObject.GetComponent<Renderer>();
 
         ApplyState(false);
     }

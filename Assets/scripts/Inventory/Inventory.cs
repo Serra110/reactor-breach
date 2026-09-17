@@ -98,6 +98,12 @@ namespace ReactorBreach.InventorySystem
                     itemLookupByName[known.itemName] = known;
         }
 
+        private void OnDestroy()
+        {
+            if (Instance == this)
+                Instance = null;
+        }
+
         private void Start()
         {
             PopulateInitialItems();

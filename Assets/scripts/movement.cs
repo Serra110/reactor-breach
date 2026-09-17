@@ -70,7 +70,8 @@ public class PlayerMovement : MonoBehaviour
             if (distanceMoved >= stepDistance && footstepSource != null)
             {
                 AudioClip clipToPlay = sprint ? sprintClip : walkClip;
-                footstepSource.PlayOneShot(clipToPlay);
+                if (clipToPlay != null)
+                    footstepSource.PlayOneShot(clipToPlay);
                 lastFootstepPosition = transform.position;
             }
         }

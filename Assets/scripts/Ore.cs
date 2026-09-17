@@ -27,17 +27,6 @@ public class Ore : MonoBehaviour
             }
         }
 
-        foreach (Collider collider in colliders)
-        {
-            Storage storage = collider.GetComponentInParent<Storage>();
-            if (storage != null)
-            {
-                storage.AddItem(item != null ? item.itemName : "Metal", amount);
-                DestroyCollectedObject();
-                return;
-            }
-        }
-
         if (inventory != null && item != null)
         {
             int remaining = inventory.AddItem(item, amount);

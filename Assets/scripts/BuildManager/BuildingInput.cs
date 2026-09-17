@@ -40,7 +40,7 @@ namespace SimpleBuildingSystem
 #else
                 Vector2 newMouse = Vector2.zero;
 #endif
-                Debug.Log($"[BuildInput] ALIVE screen={Screen.width}x{Screen.height} legacyMouse={Input.mousePosition} newMouse={newMouse}");
+                if (DebugFlags.buildLogs) Debug.Log($"[BuildInput] ALIVE screen={Screen.width}x{Screen.height} legacyMouse={Input.mousePosition} newMouse={newMouse}");
             }
 
             bool bPressed = Input.GetKeyDown(placementModeKey);

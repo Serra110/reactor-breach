@@ -13,7 +13,18 @@ public class MachineSaveHandler : MonoBehaviour, ISaveable, IPlaceable
 
     private void OnEnable()
     {
-        SaveManager.Instance.Register(this);
+        RegisterWithSaveManager();
+    }
+
+    private void Start()
+    {
+        RegisterWithSaveManager();
+    }
+
+    private void RegisterWithSaveManager()
+    {
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.Register(this);
     }
 
     private void OnDisable()
@@ -28,9 +39,10 @@ public class MachineSaveHandler : MonoBehaviour, ISaveable, IPlaceable
     
     public void AssignSavedId(string savedId)
     {
-        SaveManager.Instance.Unregister(this); 
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.Unregister(this);
         machineId = savedId;
-        SaveManager.Instance.Register(this);   
+        RegisterWithSaveManager();
     }
 
     public string CaptureState()

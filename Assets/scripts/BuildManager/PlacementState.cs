@@ -23,7 +23,7 @@ namespace SimpleBuildingSystem
 
         public override void Enter()
         {
-            Debug.Log($"[PlacementState] Enter | item={( _buildItem == null ? "NULL" : (_buildItem.prefab == null ? "prefabNULL" : _buildItem.prefab.name))} | cost={_placementCost}");
+            if (DebugFlags.buildLogs) Debug.Log($"[PlacementState] Enter | item={(_buildItem == null ? "NULL" : (_buildItem.prefab == null ? "prefabNULL" : _buildItem.prefab.name))} | cost={_placementCost}");
             SpawnPreview();
         }
 
@@ -43,7 +43,7 @@ namespace SimpleBuildingSystem
                 if (_noHitLogTimer <= 0f)
                 {
                     _noHitLogTimer = 1f;
-                    Debug.Log("[PlacementState] NO HIT - escondendo preview (sem superficie a <8m)");
+                    if (DebugFlags.buildLogs) Debug.Log("[PlacementState] NO HIT - escondendo preview (sem superficie a <8m)");
                 }
                 _previewInstance.gameObject.SetActive(false);
                 _currentSocket = null;
@@ -150,7 +150,7 @@ namespace SimpleBuildingSystem
             if (_diagTimer <= 0f)
             {
                 _diagTimer = 0.5f;
-                Debug.Log($"[PlacementState] POS hit={hit.point} target={targetPos} valid={isValid}");
+                if (DebugFlags.buildLogs) Debug.Log($"[PlacementState] POS hit={hit.point} target={targetPos} valid={isValid}");
             }
         }
 
@@ -389,7 +389,7 @@ namespace SimpleBuildingSystem
                 col.isTrigger = true;
 
             _cachedRenderers = go.GetComponentsInChildren<Renderer>(true);
-            Debug.Log($"[PlacementState] Preview spawned: {go.name} | renderers={(_cachedRenderers == null ? 0 : _cachedRenderers.Length)}");
+            if (DebugFlags.buildLogs) Debug.Log($"[PlacementState] Preview spawned: {go.name} | renderers={(_cachedRenderers == null ? 0 : _cachedRenderers.Length)}");
         }
     }
 }

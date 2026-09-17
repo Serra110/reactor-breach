@@ -132,19 +132,21 @@ public class SaveManager : MonoBehaviour
         if (playerController != null)
             playerController.enabled = false;
 
+        if (player != null)
+        {
+            player.position = new Vector3(
+                data.playerPosX,
+                data.playerPosY,
+                data.playerPosZ
+            );
 
-        player.position = new Vector3(
-            data.playerPosX,
-            data.playerPosY,
-            data.playerPosZ
-        );
 
-
-        player.rotation = Quaternion.Euler(
-            0,
-            data.playerRotY,
-            0
-        );
+            player.rotation = Quaternion.Euler(
+                0,
+                data.playerRotY,
+                0
+            );
+        }
 
 
         if (playerController != null)

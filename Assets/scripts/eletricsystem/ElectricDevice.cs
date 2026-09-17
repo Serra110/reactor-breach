@@ -26,6 +26,18 @@ public class ElectricDevice : EletricUnit
         OnInputPortsValueChanged(0);
     }
 
+    protected virtual void OnDestroy()
+    {
+        if (inputPorts == null)
+            return;
+
+        foreach (Port port in inputPorts)
+        {
+            if (port != null)
+                port.onValueChanged -= OnInputPortsValueChanged;
+        }
+    }
+
     /// <summary>
     /// Recalculates the device input from every configured input port.
     /// </summary>

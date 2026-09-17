@@ -9,6 +9,12 @@ public class ElectricUI1 : MonoBehaviour
     {
         instance = this;
     }
+
+    private void OnDestroy()
+    {
+        if (instance == this)
+            instance = null;
+    }
     [Header("Device Name Panel Properties")]
     public GameObject deviceNamePanel;
     public TMPro.TextMeshProUGUI deviceNameText;
@@ -55,6 +61,14 @@ public class ElectricUI1 : MonoBehaviour
         portDataPanelPanel.SetActive(true);
         portNameText.text = portName;
         portValueText.text = portValue.ToString();
+    }
+
+    public void ShowPortData(Port port)
+    {
+        if (port == null)
+            return;
+
+        ShowPortData(port.displayName, port.displayValue);
     }
 
     public void UpdatePortValue(int portValue)

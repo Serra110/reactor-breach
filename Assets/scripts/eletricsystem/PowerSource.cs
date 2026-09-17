@@ -24,7 +24,7 @@ IEnumerator refreshCoroutine()
             if (outputPort != null)
                 outputPort.SetValue(currentOutput);
 
-            Debug.Log($"[PowerSource] generating={isGeneratingPower} output={currentOutput}");
+            if (DebugFlags.electricLogs) Debug.Log($"[PowerSource] generating={isGeneratingPower} output={currentOutput}");
             yield return new WaitForSeconds(refreshRate);
         }
     }

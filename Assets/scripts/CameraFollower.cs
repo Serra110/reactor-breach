@@ -171,9 +171,10 @@ public class CameraFollower : MonoBehaviour
         Transform parent = transform.parent;
         if (parent != null)
         {
+            Vector3 parentLocalPos = parent.InverseTransformPoint(playerBody.position + Vector3.up * eyeHeight);
             transform.localPosition = new Vector3(
                 positionOffset.x + _bobCurrent.x,
-                positionOffset.y + _bobCurrent.y,
+                parentLocalPos.y + positionOffset.y + _bobCurrent.y,
                 positionOffset.z);
         }
         else

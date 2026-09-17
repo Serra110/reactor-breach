@@ -44,6 +44,7 @@ public class SmelterUI : MonoBehaviour
     {
         if (controller == null) return;
         controller.OnInputChanged += HandleInputChanged;
+        controller.OnOutputChanged += HandleOutputChanged;
         controller.OnProgressChanged += HandleProgressChanged;
         controller.OnStateChanged += HandleStateChanged;
     }

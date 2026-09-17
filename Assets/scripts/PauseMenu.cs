@@ -1,6 +1,11 @@
+using Mirror;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 
 public class PauseMenu : MonoBehaviour
 {
@@ -8,11 +13,16 @@ public class PauseMenu : MonoBehaviour
     [SerializeField] private CameraFollower cameraFollower;
     [SerializeField] private GameObject mineralsUI;
 
+    private Canvas pauseCanvas;
+    private int originalSortingOrder;
+
     private bool isPaused = false;
 
     void Start()
     {
+        EnsureEventSystem();
         ResolvePauseUI();
+        CachePauseCanvas();
 
         if (pauseUI != null)
             pauseUI.SetActive(false);
@@ -47,6 +57,7 @@ public class PauseMenu : MonoBehaviour
 
         SetPauseState(false);
         isPaused = false;
+        RestoreCanvasOrder();
     }
 
     public void Pause()
@@ -59,6 +70,7 @@ public class PauseMenu : MonoBehaviour
 
         SetPauseState(true);
         isPaused = true;
+        RaiseCanvasOrder();
     }
 
     private void ResolvePauseUI()
@@ -81,6 +93,28 @@ public class PauseMenu : MonoBehaviour
             Debug.LogWarning("[PauseMenu] pauseUI não foi atribuída e nenhum objeto com o nome PauseUI/PauseMenu foi encontrado.");
     }
 
+    private void CachePauseCanvas()
+    {
+        if (pauseUI == null)
+            return;
+
+        pauseCanvas = pauseUI.GetComponentInParent<Canvas>(true);
+        if (pauseCanvas != null)
+            originalSortingOrder = pauseCanvas.sortingOrder;
+    }
+
+    private void RaiseCanvasOrder()
+    {
+        if (pauseCanvas != null)
+            pauseCanvas.sortingOrder = 1000;
+    }
+
+    private void RestoreCanvasOrder()
+    {
+        if (pauseCanvas != null)
+            pauseCanvas.sortingOrder = originalSortingOrder;
+    }
+
     private void SetupPauseButtons()
     {
         if (pauseUI == null)
@@ -90,19 +124,19 @@ public class PauseMenu : MonoBehaviour
 
         foreach (Button button in buttons)
         {
-            string buttonName = button.name;
+            string buttonName = button.name.ToLowerInvariant();
 
-            if (buttonName.Contains("Resume") || buttonName.Contains("Continue"))
+            if (buttonName.Contains("resume") || buttonName.Contains("continue"))
             {
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(Resume);
             }
-            else if (buttonName.Contains("Menu") || buttonName.Contains("Restart") || buttonName.Contains("Main"))
+            else if (buttonName.Contains("menu") || buttonName.Contains("restart") || buttonName.Contains("main"))
             {
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(MainMenu);
             }
-            else if (buttonName.Contains("Quit"))
+            else if (buttonName.Contains("quit"))
             {
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(QuitGame);
@@ -125,6 +159,26 @@ public class PauseMenu : MonoBehaviour
             mineralsUI.SetActive(!paused);
     }
 
+    private static void EnsureEventSystem()
+    {
+        EventSystem eventSystem = FindFirstObjectByType<EventSystem>(FindObjectsInactive.Include);
+        if (eventSystem == null)
+        {
+            GameObject eventSystemObject = new GameObject("EventSystem");
+            eventSystem = eventSystemObject.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+            eventSystemObject.AddComponent<InputSystemUIInputModule>();
+#else
+            eventSystemObject.AddComponent<StandaloneInputModule>();
+#endif
+        }
+
+        eventSystem.enabled = true;
+        BaseInputModule inputModule = eventSystem.GetComponent<BaseInputModule>();
+        if (inputModule != null)
+            inputModule.enabled = true;
+    }
+
     public void QuitGame()
     {
         Application.Quit();
@@ -133,6 +187,26 @@ public class PauseMenu : MonoBehaviour
     public void MainMenu()
     {
         Time.timeScale = 1f;
+
+        if (NetworkManager.singleton != null &&
+            (NetworkServer.active || NetworkClient.active))
+        {
+            if (NetworkServer.active && NetworkClient.active)
+                NetworkManager.singleton.StopHost();
+            else if (NetworkServer.active)
+                NetworkManager.singleton.StopServer();
+            else
+                NetworkManager.singleton.StopClient();
+
+            // Mirror loads its configured offline scene after stopping the connection.
+            return;
+        }
+
         SceneManager.LoadScene("MainMenu");
+    }
+
+    private void OnDestroy()
+    {
+        Time.timeScale = 1f;
     }
 }

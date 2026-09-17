@@ -6,7 +6,8 @@ public class PlayerSaveHandler : MonoBehaviour, ISaveable
 
     private void OnEnable()
     {
-        SaveManager.Instance.Register(this);
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.Register(this);
     }
 
     private void OnDisable()
