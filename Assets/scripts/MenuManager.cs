@@ -13,7 +13,7 @@ using UnityEngine.InputSystem.UI;
 /// </summary>
 public sealed class MenuManager : MonoBehaviour
 {
-    private const string OfflineSceneName = "scene2";
+    private const string OfflineSceneName = "gameonline";
     private const string LobbySceneName = "lobbyonline";
 
     public Button newGameButton;
@@ -110,13 +110,8 @@ public sealed class MenuManager : MonoBehaviour
     /// <summary>Starts the local playable MVP without creating a Mirror connection.</summary>
     public void StartOfflineGame()
     {
-        if (openingOnlineLobby)
-            return;
-
-        openingOnlineLobby = true;
         Time.timeScale = 1f;
-        ShowOfflineUnavailableNotice();
-        StartCoroutine(OpenOnlineLobbyAfterNotice());
+        StartOfflineScene();
     }
 
     private void ShowOfflineUnavailableNotice()

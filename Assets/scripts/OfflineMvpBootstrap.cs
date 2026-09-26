@@ -9,23 +9,34 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Builds the focused offline MVP facility around the existing reactor gameplay.
+/// Starts the online gameplay scene locally without creating a Mirror connection.
 /// </summary>
 public sealed class OfflineMvpBootstrap : MonoBehaviour
 {
     private const string FacilityRootName = "MVP Facility";
-    private const string OfflineSceneName = "scene2";
+    private const string OfflineSceneName = "gameonline";
+    private const string OfflinePlayerResourceName = "OfflinePlayer";
 
     private ReactorController reactor;
-
     private GameObject offlinePlayer;
     private TMP_Text statusText;
     private TMP_Text objectiveText;
     private float statusRefreshTimer;
 
+    public static bool IsOffline { get; private set; }
+
+    private static bool s_sceneHookRegistered;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void RegisterSceneBootstrap()
     {
+        // FIX: sem este guard, com domain reload desligado (Play Mode Options) cada
+        // entrada em Play Mode voltava a subscrever o evento, e o handler passava a
+        // correr N vezes por scene load.
+        if (s_sceneHookRegistered)
+            return;
+
+        s_sceneHookRegistered = true;
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += TryBootstrapScene;
         TryBootstrapScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene(), UnityEngine.SceneManagement.LoadSceneMode.Single);
     }
@@ -43,29 +54,19 @@ public sealed class OfflineMvpBootstrap : MonoBehaviour
 
     private void Awake()
     {
-        BuildFacility();
+        IsOffline = true;
+        ActivateOfflineNetworkObjects();
         ConfigureOfflinePlayer();
-        ConfigureExistingGameplayObjects();
-        ConfigureAiAndNavigation();
-        CreateHud();
+    }
+
+    private void OnDestroy()
+    {
+        IsOffline = false;
     }
 
     private void Update()
     {
         EnsureOfflinePlayerActive();
-
-        if (Input.GetKeyDown(KeyCode.R) && reactor != null)
-            reactor.StartReactor();
-
-        if (Input.GetKeyDown(KeyCode.T) && reactor != null)
-            reactor.Scram();
-
-        statusRefreshTimer -= Time.unscaledDeltaTime;
-        if (statusRefreshTimer <= 0f)
-        {
-            statusRefreshTimer = 0.15f;
-            RefreshHud();
-        }
     }
 
     private void BuildFacility()
@@ -160,12 +161,34 @@ public sealed class OfflineMvpBootstrap : MonoBehaviour
             || target.GetComponentInChildren<Conveyor>(true) != null
             || target.GetComponentInChildren<Inventory>(true) != null
             || target.GetComponentInChildren<Port>(true) != null
+            || target.GetComponentInChildren<NPC>(true) != null
+            || target.GetComponentInChildren<NPCWander>(true) != null
             || target.GetComponentInChildren<NetworkIdentity>(true) != null;
     }
 
     private void ConfigureOfflinePlayer()
     {
         offlinePlayer = GameObject.Find("OfflinePlayer");
+        NetworkManager networkManager = NetworkManager.singleton;
+        if (networkManager == null)
+            networkManager = FindFirstObjectByType<NetworkManager>(FindObjectsInactive.Include);
+
+        if (offlinePlayer == null && networkManager != null && networkManager.playerPrefab != null)
+        {
+            offlinePlayer = Instantiate(networkManager.playerPrefab);
+            offlinePlayer.name = "OfflinePlayer";
+        }
+
+        if (offlinePlayer == null)
+        {
+            GameObject offlinePlayerPrefab = Resources.Load<GameObject>(OfflinePlayerResourceName);
+            if (offlinePlayerPrefab != null)
+            {
+                offlinePlayer = Instantiate(offlinePlayerPrefab);
+                offlinePlayer.name = "OfflinePlayer";
+            }
+        }
+
         if (offlinePlayer == null)
         {
             PlayerMovement movementFallback = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
@@ -177,16 +200,25 @@ public sealed class OfflineMvpBootstrap : MonoBehaviour
             return;
 
         offlinePlayer.SetActive(true);
+        offlinePlayer.tag = "Player";
         DisableNetworkComponents(offlinePlayer);
 
         CharacterController controller = offlinePlayer.GetComponent<CharacterController>();
         if (controller != null)
             controller.enabled = false;
 
-        offlinePlayer.transform.SetPositionAndRotation(new Vector3(0f, 1.05f, -14f), Quaternion.identity);
+        Vector3 spawnPosition = GetOfflineSpawnPosition(out Quaternion spawnRotation);
+        offlinePlayer.transform.SetPositionAndRotation(spawnPosition, spawnRotation);
 
         if (controller != null)
             controller.enabled = true;
+
+        NetworkPlayerSetup playerSetup = offlinePlayer.GetComponent<NetworkPlayerSetup>();
+        if (playerSetup != null)
+        {
+            playerSetup.enabled = true;
+            playerSetup.InitializeOfflinePlayer();
+        }
 
         PlayerMovement movement = offlinePlayer.GetComponent<PlayerMovement>();
         if (movement != null)
@@ -209,7 +241,27 @@ public sealed class OfflineMvpBootstrap : MonoBehaviour
 
         GameObject respawn = GameObject.Find("RespawnPoint");
         if (respawn != null)
-            respawn.transform.position = new Vector3(0f, 1.05f, -14f);
+            respawn.transform.SetPositionAndRotation(spawnPosition, spawnRotation);
+    }
+
+    private static Vector3 GetOfflineSpawnPosition(out Quaternion spawnRotation)
+    {
+        NetworkStartPosition startPosition = FindFirstObjectByType<NetworkStartPosition>(FindObjectsInactive.Include);
+        if (startPosition != null)
+        {
+            spawnRotation = startPosition.transform.rotation;
+            return startPosition.transform.position;
+        }
+
+        GameObject respawn = GameObject.Find("RespawnPoint");
+        if (respawn != null)
+        {
+            spawnRotation = respawn.transform.rotation;
+            return respawn.transform.position;
+        }
+
+        spawnRotation = Quaternion.identity;
+        return new Vector3(0f, 1.05f, -14f);
     }
 
     private void EnsureOfflinePlayerActive()
@@ -223,6 +275,24 @@ public sealed class OfflineMvpBootstrap : MonoBehaviour
         }
     }
 
+    private static void ActivateOfflineNetworkObjects()
+    {
+        NetworkIdentity[] identities = FindObjectsByType<NetworkIdentity>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (NetworkIdentity identity in identities)
+        {
+            if (identity != null)
+            {
+                identity.gameObject.SetActive(true);
+                Transform parent = identity.transform.parent;
+                while (parent != null)
+                {
+                    parent.gameObject.SetActive(true);
+                    parent = parent.parent;
+                }
+            }
+        }
+    }
+
     private static void DisableNetworkComponents(GameObject player)
     {
         NetworkIdentity identity = player.GetComponent<NetworkIdentity>();
@@ -231,7 +301,10 @@ public sealed class OfflineMvpBootstrap : MonoBehaviour
 
         NetworkBehaviour[] networkBehaviours = player.GetComponents<NetworkBehaviour>();
         foreach (NetworkBehaviour networkBehaviour in networkBehaviours)
-            networkBehaviour.enabled = false;
+        {
+            if (!(networkBehaviour is NetworkPlayerSetup) && !(networkBehaviour is NetworkPlayerHealth))
+                networkBehaviour.enabled = false;
+        }
     }
 
     private void ConfigureExistingGameplayObjects()
@@ -257,21 +330,24 @@ public sealed class OfflineMvpBootstrap : MonoBehaviour
             surface.BuildNavMesh();
         }
 
-        NPC npc = FindFirstObjectByType<NPC>(FindObjectsInactive.Include);
-        if (npc == null)
-            return;
+        NPC[] npcs = FindObjectsByType<NPC>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int index = 0; index < npcs.Length; index++)
+        {
+            NPC npc = npcs[index];
+            npc.gameObject.SetActive(true);
 
-        npc.gameObject.SetActive(true);
+            foreach (Camera npcCamera in npc.GetComponentsInChildren<Camera>(true))
+                npcCamera.enabled = false;
+            foreach (AudioListener npcListener in npc.GetComponentsInChildren<AudioListener>(true))
+                npcListener.enabled = false;
 
-        foreach (Camera npcCamera in npc.GetComponentsInChildren<Camera>(true))
-            npcCamera.enabled = false;
-        foreach (AudioListener npcListener in npc.GetComponentsInChildren<AudioListener>(true))
-            npcListener.enabled = false;
-
-        npc.transform.position = new Vector3(25f, 1f, -10f);
-        NavMeshAgent agent = npc.GetComponent<NavMeshAgent>();
-        if (agent != null && agent.isOnNavMesh)
-            agent.Warp(new Vector3(25f, 1f, -10f));
+            Vector3 spawnPosition = new Vector3(25f + index * 2f, 1f, -10f);
+            NavMeshAgent agent = npc.GetComponent<NavMeshAgent>();
+            if (agent != null && NavMesh.SamplePosition(spawnPosition, out NavMeshHit hit, 4f, NavMesh.AllAreas))
+                agent.Warp(hit.position);
+            else
+                npc.transform.position = spawnPosition;
+        }
     }
 
     private void CreateHud()

@@ -9,11 +9,29 @@ public class PowerSource : EletricUnit
   public int maxOutput;
   public bool isGeneratingPower;
 
+  private WaitForSeconds _refreshWait;
+  private Coroutine _refreshRoutine;
+
   private void Start()
   {
-      StartCoroutine(refreshCoroutine());
-  } 
- 
+      // FIX: o WaitForSeconds era alocado a cada volta do while(true).
+      // Hoist para um unico objeto reutilizado (WaitForSeconds e um YieldInstruction
+      // sem estado, por isso pode ser reusado em seguranca).
+      _refreshWait = new WaitForSeconds(Mathf.Max(0.05f, refreshRate));
+      _refreshRoutine = StartCoroutine(refreshCoroutine());
+  }
+
+  private void OnDestroy()
+  {
+      // FIX: sem isto a coroutine continuava a correr depois do objeto ser
+      // destruido, escrevendo em ports Mortos.
+      if (_refreshRoutine != null)
+      {
+          StopCoroutine(_refreshRoutine);
+          _refreshRoutine = null;
+      }
+  }
+
 
 IEnumerator refreshCoroutine()
     {
@@ -25,7 +43,7 @@ IEnumerator refreshCoroutine()
                 outputPort.SetValue(currentOutput);
 
             if (DebugFlags.electricLogs) Debug.Log($"[PowerSource] generating={isGeneratingPower} output={currentOutput}");
-            yield return new WaitForSeconds(refreshRate);
+            yield return _refreshWait;
         }
     }
 

@@ -1,9 +1,11 @@
 using Mirror;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 #endif
 
@@ -38,13 +40,26 @@ public class PauseMenu : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (EscapeWasPressed())
         {
             if (isPaused)
                 Resume();
             else
                 Pause();
         }
+    }
+
+    private static bool EscapeWasPressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            return true;
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetKeyDown(KeyCode.Escape);
+#else
+    return false;
+#endif
     }
 
     public void Resume()
@@ -90,6 +105,9 @@ public class PauseMenu : MonoBehaviour
             pauseUI = GameObject.Find("PauseMenu");
 
         if (pauseUI == null)
+            pauseUI = FindObjectByName("PauseUI", "PauseMenu");
+
+        if (pauseUI == null)
             Debug.LogWarning("[PauseMenu] pauseUI não foi atribuída e nenhum objeto com o nome PauseUI/PauseMenu foi encontrado.");
     }
 
@@ -125,13 +143,22 @@ public class PauseMenu : MonoBehaviour
         foreach (Button button in buttons)
         {
             string buttonName = button.name.ToLowerInvariant();
+            TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+            UnityEngine.UI.Text legacyLabel = button.GetComponentInChildren<UnityEngine.UI.Text>(true);
+            string buttonText = label != null
+                ? label.text.ToLowerInvariant()
+                : legacyLabel != null ? legacyLabel.text.ToLowerInvariant() : string.Empty;
 
-            if (buttonName.Contains("resume") || buttonName.Contains("continue"))
+            if (buttonName.Contains("resume") || buttonName.Contains("continue")
+                || buttonText.Contains("resume") || buttonText.Contains("continue")
+                || buttonText.Contains("continuar"))
             {
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(Resume);
             }
-            else if (buttonName.Contains("menu") || buttonName.Contains("restart") || buttonName.Contains("main"))
+            else if (buttonName.Contains("menu") || buttonName.Contains("restart") || buttonName.Contains("main")
+                || buttonText.Contains("menu") || buttonText.Contains("restart")
+                || buttonText.Contains("main") || buttonText.Contains("menu principal"))
             {
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(MainMenu);
@@ -142,6 +169,21 @@ public class PauseMenu : MonoBehaviour
                 button.onClick.AddListener(QuitGame);
             }
         }
+    }
+
+    private static GameObject FindObjectByName(params string[] names)
+    {
+        Transform[] objects = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (Transform candidate in objects)
+        {
+            foreach (string name in names)
+            {
+                if (string.Equals(candidate.name, name, System.StringComparison.OrdinalIgnoreCase))
+                    return candidate.gameObject;
+            }
+        }
+
+        return null;
     }
 
     private void SetPauseUIActive(bool active)
@@ -197,9 +239,6 @@ public class PauseMenu : MonoBehaviour
                 NetworkManager.singleton.StopServer();
             else
                 NetworkManager.singleton.StopClient();
-
-            // Mirror loads its configured offline scene after stopping the connection.
-            return;
         }
 
         SceneManager.LoadScene("MainMenu");

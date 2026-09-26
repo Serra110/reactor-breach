@@ -19,21 +19,22 @@ public sealed class NetworkPowerGrid : NetworkBehaviour
             Destroy(gameObject);
     }
 
-    [ServerCallback]
     private void Update()
     {
+        if (!NetworkServer.active && !OfflineMvpBootstrap.IsOffline)
+            return;
+
         RecalculateServerState();
     }
 
-    [Server]
     public void SetPower(float power)
     {
         availablePower = Mathf.Max(0f, power);
         gridOnline = availablePower > 0f;
-        RpcPowerStateChanged(gridOnline, availablePower);
+        if (NetworkServer.active)
+            RpcPowerStateChanged(gridOnline, availablePower);
     }
 
-    [Server]
     private void RecalculateServerState()
     {
         availablePower = Mathf.Max(0f, availablePower);

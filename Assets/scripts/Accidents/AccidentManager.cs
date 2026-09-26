@@ -34,6 +34,7 @@ public class AccidentManager : MonoBehaviour
     private string _currentMessage;
     private float _messageTimer;
     private static Material _peelMaterial;
+    private Coroutine _accidentRoutine;
 
     private void Awake()
     {
@@ -43,13 +44,29 @@ public class AccidentManager : MonoBehaviour
 
     private void Start()
     {
-        StartCoroutine(AccidentLoop());
+        _accidentRoutine = StartCoroutine(AccidentLoop());
+    }
+
+    // FIX: sem este guard o while(true) continuava vivo depois do componente
+    // ser destruido, disparando acidentes e criando GameObjects órfãos.
+    private void OnDestroy()
+    {
+        if (_accidentRoutine != null)
+        {
+            StopCoroutine(_accidentRoutine);
+            _accidentRoutine = null;
+        }
+
+        if (Instance == this)
+            Instance = null;
     }
 
     private IEnumerator AccidentLoop()
     {
         while (true)
         {
+            // O intervalo é aleatório, por isso não pode ser um WaitForSeconds
+            // reutilizado. Alocamos uma vez por volta em vez de por frame.
             yield return new WaitForSeconds(Random.Range(minInterval, maxInterval));
             if (!enabled) continue;
             TriggerAccident();

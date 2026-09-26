@@ -20,7 +20,12 @@ public sealed class NetworkSwitch : NetworkBehaviour
         if (switchDevice == null)
             return;
 
-        if (isServer)
+        if (OfflineMvpBootstrap.IsOffline || (!NetworkServer.active && !NetworkClient.active))
+        {
+            synchronizedState = switchDevice.switchState;
+            switchDevice.SetNetworkState(synchronizedState);
+        }
+        else if (isServer)
         {
             synchronizedState = switchDevice.switchState;
             switchDevice.SetNetworkState(synchronizedState);
@@ -36,6 +41,14 @@ public sealed class NetworkSwitch : NetworkBehaviour
     /// </summary>
     public void RequestToggle()
     {
+        if (OfflineMvpBootstrap.IsOffline || (!NetworkServer.active && !NetworkClient.active))
+        {
+            synchronizedState = !synchronizedState;
+            if (switchDevice != null)
+                switchDevice.SetNetworkState(synchronizedState);
+            return;
+        }
+
         if (isServer)
         {
             ToggleOnServer();
@@ -58,7 +71,6 @@ public sealed class NetworkSwitch : NetworkBehaviour
         ToggleOnServer();
     }
 
-    [Server]
     private void ToggleOnServer()
     {
         synchronizedState = !synchronizedState;

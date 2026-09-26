@@ -8,27 +8,51 @@ public class SplashScreen : MonoBehaviour
     public float fadeSpeed = 1.5f;
     public float waitTime = 2f;
 
+    private Coroutine _routine;
+    private bool _loadingTitle;
+
     void Start()
     {
-        StartCoroutine(PlaySplash());
+        _routine = StartCoroutine(PlaySplash());
+    }
+
+    void OnDestroy()
+    {
+        // FIX: o PlaySplash carregava o TitleScreen no fim. Se este objeto fosse
+        // destruido entretanto (ou o utilizador mudasse de cena), a coroutine
+        // continuava a correr e ainda disparava o LoadScene a meio de outra cena.
+        if (_routine != null)
+        {
+            StopCoroutine(_routine);
+            _routine = null;
+        }
     }
 
     System.Collections.IEnumerator PlaySplash()
     {
-        yield return StartCoroutine(Fade(0, 1));
+        yield return Fade(0, 1);
 
-        yield return new WaitForSeconds(waitTime);
+        yield return new WaitForSeconds(Mathf.Max(0f, waitTime));
 
-        yield return StartCoroutine(Fade(1, 0));
+        yield return Fade(1, 0);
 
+        // Fade e um plain IEnumerator, por isso ja nao precisa de um wrapper
+        // (StartCoroutine devolvia IEnumerator, o que forcava um wrapper extra).
+        if (this == null || _loadingTitle)
+            yield break;
+
+        _loadingTitle = true;
         SceneManager.LoadScene("TitleScreen");
     }
 
     System.Collections.IEnumerator Fade(float from, float to)
     {
+        if (logo == null)
+            yield break;
+
         float t = 0;
         Color c = logo.color;
-        float duration = 1f / fadeSpeed;
+        float duration = Mathf.Max(0.01f, 1f / Mathf.Max(0.01f, fadeSpeed));
 
         while (t < duration)
         {

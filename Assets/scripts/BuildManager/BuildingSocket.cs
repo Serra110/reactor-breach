@@ -45,14 +45,22 @@ namespace SimpleBuildingSystem
         }
 
         // Procura o socket livre mais próximo dentro de um raio, filtrando por tipo de Part.
+        // FIX (WebGL): OverlapSphere alocava um Collider[] novo por frame. Buffer estatico
+        // + NonAlloc elimina essa alocacao por frame.
+        private const int MaxOverlapColliders = 64;
+        private static readonly Collider[] s_overlapBuffer = new Collider[MaxOverlapColliders];
+
         public static BuildingSocket FindNearest(Vector3 worldPos, float searchRadius, BuildingPart forPart)
         {
             BuildingSocket best = null;
             float bestDist = float.MaxValue;
 
-            var colliders = Physics.OverlapSphere(worldPos, searchRadius);
-            foreach (var col in colliders)
+            int count = Physics.OverlapSphereNonAlloc(worldPos, searchRadius, s_overlapBuffer);
+            for (int i = 0; i < count; i++)
             {
+                var col = s_overlapBuffer[i];
+                if (col == null) continue;
+
                 var socket = col.GetComponent<BuildingSocket>();
                 if (socket == null) continue;
 

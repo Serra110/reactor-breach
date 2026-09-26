@@ -43,6 +43,9 @@ public sealed class OnlineRoomManager : NetworkRoomManager
         if (statusText == null || playersText == null || startGameButton == null)
             return;
 
+        // FIX (WebGL): isto corria em TODOS os frames e concatenava 3 strings por
+        // frame, mesmo quando nada mudava. Isso gera recolha de lixo constante
+        // (visivel como stutter no browser). Agora so escreve quando o valor muda.
         string state = NetworkServer.active && NetworkClient.active
             ? "Host online"
             : NetworkServer.active
@@ -51,12 +54,32 @@ public sealed class OnlineRoomManager : NetworkRoomManager
                     ? "Connected to server"
                     : "Offline";
 
-        statusText.text = state + " | Address: " + networkAddress;
-        playersText.text = "Players in lobby: " + roomSlots.Count;
-        startGameButton.interactable = NetworkServer.active;
+        string status = state + " | Address: " + networkAddress;
+        if (status != _lastStatusText)
+        {
+            _lastStatusText = status;
+            statusText.text = status;
+        }
+
+        int playerCount = roomSlots.Count;
+        if (playerCount != _lastPlayerCount)
+        {
+            _lastPlayerCount = playerCount;
+            playersText.text = "Players in lobby: " + playerCount;
+        }
+
+        bool canStart = NetworkServer.active;
+        if (canStart != _lastCanStart)
+        {
+            _lastCanStart = canStart;
+            startGameButton.interactable = canStart;
+        }
     }
 
     private float _lobbySearchTimer;
+    private string _lastStatusText;
+    private int _lastPlayerCount = -1;
+    private bool _lastCanStart;
 
     /// <summary>Starts this instance as the host of the online lobby.</summary>
     public void CreateServer()
@@ -138,9 +161,15 @@ public sealed class OnlineRoomManager : NetworkRoomManager
 
     private void ResolveLobbyInterface()
     {
+        // FIX (WebGL): isto fazia 5 GameObject.Find por segundo durante o jogo todo.
+        // Quando a interface ja esta resolvida nao ha nada a refazer, por isso sai logo.
+        if (_lobbyInterfaceResolved && lobbyCanvas != null && statusText != null && playersText != null && startGameButton != null)
+            return;
+
         GameObject canvasObject = GameObject.Find("OnlineLobbyCanvas");
         if (canvasObject == null)
         {
+            _lobbyInterfaceResolved = false;
             return;
         }
 
@@ -149,5 +178,13 @@ public sealed class OnlineRoomManager : NetworkRoomManager
         playersText = GameObject.Find("OnlineLobbyCanvas/Panel/Players")?.GetComponent<TMP_Text>();
         addressInput = GameObject.Find("OnlineLobbyCanvas/Panel/ServerAddress")?.GetComponent<TMP_InputField>();
         startGameButton = GameObject.Find("OnlineLobbyCanvas/Panel/StartGame")?.GetComponent<Button>();
+
+        _lobbyInterfaceResolved = lobbyCanvas != null && statusText != null && playersText != null && startGameButton != null;
+
+        // Invalida o cache de texto para forcar a escrita do estado atual.
+        _lastStatusText = null;
+        _lastPlayerCount = -1;
     }
+
+    private bool _lobbyInterfaceResolved;
 }

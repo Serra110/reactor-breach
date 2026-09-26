@@ -5,7 +5,10 @@ using UnityEngine;
 public class OreSpawner : MonoBehaviour
 {
     public GameObject orePrefab;
+    [Tooltip("Plano usado para o spawn inicial dos minerais.")]
     public Transform groundPlane;
+    [Tooltip("Plano usado para recriar minerais depois de serem recolhidos. Se vazio, nao ha respawn.")]
+    public Transform respawnGroundPlane;
 
     [Header("Ore Settings")]
     public ItemSO oreItem;
@@ -19,9 +22,11 @@ public class OreSpawner : MonoBehaviour
     private readonly List<GameObject> spawnedOres = new List<GameObject>();
     private float respawnTimer;
 
+    private Transform RespawnPlane => respawnGroundPlane;
+
     private void Start()
     {
-        if (!NetworkServer.active || groundPlane == null || orePrefab == null)
+        if ((!NetworkServer.active && !OfflineMvpBootstrap.IsOffline) || groundPlane == null || orePrefab == null)
             return;
 
         SpawnAllOres();
@@ -29,7 +34,7 @@ public class OreSpawner : MonoBehaviour
 
     private void Update()
     {
-        if (!NetworkServer.active || groundPlane == null || orePrefab == null)
+        if ((!NetworkServer.active && !OfflineMvpBootstrap.IsOffline) || RespawnPlane == null || orePrefab == null)
             return;
 
         respawnTimer += Time.deltaTime;
@@ -46,10 +51,26 @@ public class OreSpawner : MonoBehaviour
             }
         }
 
-        while (spawnedOres.Count < amount)
+        // FIX: o while anterior era um loop infinito na pratica. Se o plano de respawn
+        // for pequeno demais para comportar `amount` minerais com `minDistance`, os 100
+        // tentativas falhavam todas, nada era criado, Count continuava igual e o loop
+        // nunca saia -> main thread bloqueado para sempre (freeze total no WebGL).
+        // Agora cadaminerAL criado encerra a volta, com um teto de passes.
+        if (spawnedOres.Count >= amount)
+            return;
+
+        Renderer planeRenderer = RespawnPlane.GetComponent<Renderer>();
+        if (planeRenderer == null)
+            return;
+
+        Bounds bounds = planeRenderer.bounds;
+        int passes = 0;
+        while (spawnedOres.Count < amount && passes < 100)
         {
-            Bounds bounds = groundPlane.GetComponent<Renderer>().bounds;
+            passes++;
+
             int attempts = 0;
+            bool spawnedOne = false;
             while (attempts < 100)
             {
                 attempts++;
@@ -60,15 +81,23 @@ public class OreSpawner : MonoBehaviour
                 if (IsFarEnough(position))
                 {
                     SpawnOre(position);
+                    spawnedOne = true;
                     break;
                 }
             }
+
+            if (!spawnedOne)
+                break;
         }
     }
 
     private void SpawnAllOres()
     {
-        Bounds bounds = groundPlane.GetComponent<Renderer>().bounds;
+        Renderer renderer = groundPlane.GetComponent<Renderer>();
+        if (renderer == null)
+            return;
+
+        Bounds bounds = renderer.bounds;
         int spawned = 0;
         int attempts = 0;
 
@@ -98,13 +127,8 @@ public class OreSpawner : MonoBehaviour
         }
 
         NetworkIdentity identity = ore.GetComponent<NetworkIdentity>();
-        if (identity == null)
-        {
-            Destroy(ore);
-            return;
-        }
-
-        NetworkServer.Spawn(ore);
+        if (NetworkServer.active && identity != null)
+            NetworkServer.Spawn(ore);
         spawnedOres.Add(ore);
         spawnedPositions.Add(position);
     }

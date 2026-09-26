@@ -154,6 +154,11 @@ namespace SimpleBuildingSystem
             }
         }
 
+        // FIX (WebGL): OverlapBox alocava um Collider[] por frame enquanto a preview
+        // se movia. Buffer reutilizado + NonAlloc.
+        private const int MaxOverlapColliders = 64;
+        private readonly Collider[] _overlapBuffer = new Collider[MaxOverlapColliders];
+
         private bool EvaluatePlacement(BuildingSocket socket)
         {
             Bounds bounds = GetPreviewBounds();
@@ -165,9 +170,10 @@ namespace SimpleBuildingSystem
             if (halfExtents.y <= 0f)
                 return true;
 
-            Collider[] overlaps = Physics.OverlapBox(
+            int overlapCount = Physics.OverlapBoxNonAlloc(
                 center,
                 halfExtents,
+                _overlapBuffer,
                 _previewInstance.transform.rotation,
                 controller.obstructionMask,
                 QueryTriggerInteraction.Ignore
@@ -175,8 +181,11 @@ namespace SimpleBuildingSystem
 
             BuildingPart neighborPart = socket != null ? socket.GetComponentInParent<BuildingPart>() : null;
 
-            foreach (var overlap in overlaps)
+            for (int i = 0; i < overlapCount; i++)
             {
+                Collider overlap = _overlapBuffer[i];
+                if (overlap == null) continue;
+
                 if (overlap.transform.IsChildOf(_previewInstance.transform))
                     continue;
 

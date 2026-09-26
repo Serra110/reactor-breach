@@ -40,6 +40,11 @@ public sealed class NetworkPlayerSetup : NetworkBehaviour
         SetOwnerOnlyComponents(false);
     }
 
+    public void InitializeOfflinePlayer()
+    {
+        SetOwnerOnlyComponents(true);
+    }
+
     private void SetOwnerOnlyComponents(bool enabledForOwner)
     {
         bool offlineMode = !NetworkClient.active && !NetworkServer.active;

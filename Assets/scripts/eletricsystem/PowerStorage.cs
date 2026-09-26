@@ -14,9 +14,27 @@ public class PowerStorage : EletricUnit
    public int currentOutput;
 
    [Min(0.1f)] public float refreshRate = 0.25f;
+
+   // FIX: WaitForSeconds era alocado a cada volta do while(true) (4x/segundo por
+   // dispositivo). Hoist para um unico objeto reutilizado.
+   private WaitForSeconds _refreshWait;
+   private Coroutine _refreshRoutine;
+
    private void Start()
    {
-       StartCoroutine(refreshCoroutine());
+       _refreshWait = new WaitForSeconds(Mathf.Max(0.05f, refreshRate));
+       _refreshRoutine = StartCoroutine(refreshCoroutine());
+   }
+
+   // FIX: sem este guard a coroutine sobrevivia ao objeto destruido e continuava a
+   // percorrer a arvore de devices, lancando MissingReferenceException em cadeia.
+   private void OnDestroy()
+   {
+       if (_refreshRoutine != null)
+       {
+           StopCoroutine(_refreshRoutine);
+           _refreshRoutine = null;
+       }
    }
 
    IEnumerator refreshCoroutine()
@@ -42,9 +60,10 @@ public class PowerStorage : EletricUnit
             {
                 Debug.LogError($"[PowerStorage] ERRO no refresh: {e}");
             }
-              yield return new WaitForSeconds(refreshRate);
+              yield return _refreshWait;
          }
     }
+
 
     public int GetConnectedDevicesCost()
     {

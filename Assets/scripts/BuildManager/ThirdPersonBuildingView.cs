@@ -9,6 +9,11 @@ namespace SimpleBuildingSystem
         [Tooltip("Câmara a partir da qual o ray é lançado. Se vazio, usa Camera.main.")]
         public Camera sourceCamera;
 
+        // FIX (WebGL): ver FirstPersonBuildingView — RaycastAll + Array.Sort(lambda)
+        // alocavam por frame. RaycastNonAlloc + minima manual nao aloca.
+        private const int MaxHits = 32;
+        private readonly RaycastHit[] _hitBuffer = new RaycastHit[MaxHits];
+
         private void Awake()
         {
             if (sourceCamera == null) sourceCamera = Camera.main;
@@ -20,20 +25,25 @@ namespace SimpleBuildingSystem
             if (sourceCamera == null) return false;
 
             Ray ray = sourceCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-            RaycastHit[] hits = Physics.RaycastAll(ray, maxDistance, placementMask, QueryTriggerInteraction.Ignore);
-            if (hits.Length == 0) return false;
+            int count = Physics.RaycastNonAlloc(ray, _hitBuffer, maxDistance, placementMask, QueryTriggerInteraction.Ignore);
+            if (count == 0) return false;
 
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-            foreach (var candidate in hits)
+            float bestDistance = float.MaxValue;
+            bool found = false;
+            for (int i = 0; i < count; i++)
             {
+                RaycastHit candidate = _hitBuffer[i];
+                if (candidate.distance >= bestDistance)
+                    continue;
                 if (ShouldIgnoreCollider(candidate.collider))
                     continue;
 
+                bestDistance = candidate.distance;
                 hit = candidate;
-                return true;
+                found = true;
             }
 
-            return false;
+            return found;
         }
     }
 }

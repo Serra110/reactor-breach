@@ -14,50 +14,61 @@ public sealed class NetworkPlayerHealth : NetworkBehaviour
     private bool dead;
     private HealthBar localHealthBar;
 
+    private bool IsOffline => OfflineMvpBootstrap.IsOffline && !NetworkServer.active && !NetworkClient.active;
+
+    private void Start()
+    {
+        if (NetworkServer.active)
+            return;
+
+        startPosition = transform.position;
+        ResolveRespawnPoint();
+        currentHealth = maxHealth;
+        dead = false;
+        RefreshLocalHealthBar();
+    }
+
     public override void OnStartLocalPlayer()
     {
-        localHealthBar = FindFirstObjectByType<HealthBar>();
-        if (localHealthBar != null)
-        {
-            localHealthBar.SetMaxHealth(maxHealth);
-            localHealthBar.SetHealth(currentHealth);
-        }
+        RefreshLocalHealthBar();
     }
 
     public override void OnStartServer()
     {
         startPosition = transform.position;
-        if (respawnPoint == null)
-        {
-            GameObject respawnObject = GameObject.Find("RespawnPoint");
-            if (respawnObject != null)
-                respawnPoint = respawnObject.transform;
-        }
+        ResolveRespawnPoint();
         currentHealth = maxHealth;
         dead = false;
     }
 
-    [ServerCallback]
     private void Update()
     {
+        if (!NetworkServer.active && !IsOffline)
+            return;
+
         if (!dead && transform.position.y < killY)
             Respawn();
     }
 
-    [Server]
     public void TakeDamage(int amount)
     {
+        if (!NetworkServer.active && !IsOffline)
+            return;
+
         if (dead || amount <= 0)
             return;
 
         currentHealth = Mathf.Max(0, currentHealth - amount);
+        RefreshLocalHealthBar();
         if (currentHealth == 0)
             Respawn();
     }
 
-    [Server]
     public void Respawn()
     {
+        if (!NetworkServer.active && !IsOffline)
+            return;
+
         dead = true;
         NetworkPlayerMovement movement = GetComponent<NetworkPlayerMovement>();
         CharacterController controller = GetComponent<CharacterController>();
@@ -73,15 +84,38 @@ public sealed class NetworkPlayerHealth : NetworkBehaviour
 
         currentHealth = maxHealth;
         dead = false;
+        RefreshLocalHealthBar();
+    }
+
+    private void ResolveRespawnPoint()
+    {
+        if (respawnPoint == null)
+        {
+            GameObject respawnObject = GameObject.Find("RespawnPoint");
+            if (respawnObject != null)
+                respawnPoint = respawnObject.transform;
+        }
+    }
+
+    private void RefreshLocalHealthBar()
+    {
+        if (localHealthBar == null)
+            localHealthBar = FindFirstObjectByType<HealthBar>(FindObjectsInactive.Include);
+
+        if (localHealthBar != null && localHealthBar.healthSlider != null)
+        {
+            localHealthBar.SetMaxHealth(maxHealth);
+            localHealthBar.SetHealth(currentHealth);
+        }
     }
 
     private void OnHealthChanged(int oldValue, int newValue)
     {
-        if (isLocalPlayer)
+        if (isLocalPlayer || IsOffline)
         {
             if (localHealthBar == null)
-                localHealthBar = FindFirstObjectByType<HealthBar>();
-            if (localHealthBar != null)
+                localHealthBar = FindFirstObjectByType<HealthBar>(FindObjectsInactive.Include);
+            if (localHealthBar != null && localHealthBar.healthSlider != null)
                 localHealthBar.SetHealth(newValue);
         }
 

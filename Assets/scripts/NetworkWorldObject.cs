@@ -15,12 +15,12 @@ public class NetworkWorldObject : NetworkBehaviour
         SyncInitialState();
     }
 
-    [Server]
     public void SetWorldObjectState(bool active, int amount)
     {
         worldObjectActive = active;
         resourceAmount = Mathf.Max(0, amount);
-        RpcApplyWorldObjectState(worldObjectActive, resourceAmount);
+        if (NetworkServer.active)
+            RpcApplyWorldObjectState(worldObjectActive, resourceAmount);
     }
 
     [ClientRpc]
@@ -31,7 +31,6 @@ public class NetworkWorldObject : NetworkBehaviour
         gameObject.SetActive(active);
     }
 
-    [Server]
     protected virtual void SyncInitialState()
     {
         resourceAmount = Mathf.Max(0, resourceAmount);

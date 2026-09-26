@@ -837,7 +837,7 @@ public class ReactorController : EletricUnit
     private void UpdateGrid()
     {
         if (maxPowerMegawatts <= 0f) return;
-        if (!NetworkServer.active) return;
+        if (!NetworkServer.active && !OfflineMvpBootstrap.IsOffline) return;
         if (NetworkPowerGrid.Instance == null) return;
         NetworkPowerGrid.Instance.SetPower(electricalOutput * maxPowerMegawatts);
     }

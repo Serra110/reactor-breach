@@ -84,6 +84,13 @@ public class NPC : MonoBehaviour
     private float lastGrowlTime;
     private bool detectPlayed;
 
+    // Cache dos parametros do Animator (ver CacheAnimatorParameters) e buffer de
+    // raycast reutilizado, para nao alocar nada por frame.
+    private Dictionary<string, AnimatorControllerParameterType> _animatorParameterTypes;
+    private GameObject _waypointContainer;
+    private const int MaxLineOfSightHits = 16;
+    private readonly RaycastHit[] _lineOfSightBuffer = new RaycastHit[MaxLineOfSightHits];
+
     // ===================================================================
     //  LIFECYCLE
     // ===================================================================
@@ -97,7 +104,30 @@ public class NPC : MonoBehaviour
         Animator.applyRootMotion = false;
         if (Agent.speed <= 0f) Agent.speed = patrolSpeed;
 
+        CacheAnimatorParameters();
         SetupAudio();
+    }
+
+    private void OnDestroy()
+    {
+        // Destroi os waypoints gerados; sem isto ficavam orfaos na cena.
+        if (_waypointContainer != null)
+            Destroy(_waypointContainer);
+    }
+
+    // FIX (WebGL): Animator.parameters devolve uma COPIA do array a cada acesso, e
+    // HasAnimatorParameter era chamado 3x por frame por NPC. Com varios NPCs isso eram
+    // centenas de arrays por frame -> GC ciclo constante e stutter. Parametros sao
+    // cacheados uma unica vez no Awake.
+    private void CacheAnimatorParameters()
+    {
+        _animatorParameterTypes = null;
+        if (Animator == null) return;
+
+        AnimatorControllerParameter[] parameters = Animator.parameters;
+        _animatorParameterTypes = new Dictionary<string, AnimatorControllerParameterType>(parameters.Length);
+        for (int i = 0; i < parameters.Length; i++)
+            _animatorParameterTypes[parameters[i].name] = parameters[i].type;
     }
 
     private void SetupAudio()
@@ -300,14 +330,21 @@ public class NPC : MonoBehaviour
             attempts++;
         }
 
-        GameObject container = new GameObject("Generated_Waypoints");
-        container.transform.position = Vector3.zero;
+        // FIX: o contentor vivia na raiz da cena, por isso os waypoints sobreviviam
+        // ao NPC e acumulavam-se a cada respawn (vazamento de GameObjects). Guardamos
+        // a referencia e destruimos tudo no OnDestroy. Nao pode ser parental ao NPC,
+        // porque os waypoints sao coordenadas de mundo e têm de ficar fixos no mapa.
+        if (_waypointContainer != null)
+            Destroy(_waypointContainer);
+
+        _waypointContainer = new GameObject("Generated_Waypoints");
+        _waypointContainer.transform.position = Vector3.zero;
 
         generatedWaypoints = new Transform[positions.Count];
         for (int i = 0; i < positions.Count; i++)
         {
             GameObject wp = new GameObject($"WP_{i}");
-            wp.transform.SetParent(container.transform);
+            wp.transform.SetParent(_waypointContainer.transform);
             wp.transform.position = positions[i];
             generatedWaypoints[i] = wp.transform;
         }
@@ -349,17 +386,22 @@ public class NPC : MonoBehaviour
         if (inSightRange && inSightAngle && obstacleMask.value != 0)
         {
             Vector3 eyePosition = transform.position + Vector3.up * 1.5f;
-            RaycastHit[] hits = Physics.RaycastAll(
+            // FIX (WebGL): RaycastAll alocava um RaycastHit[] por frame por NPC.
+            int hitCount = Physics.RaycastNonAlloc(
                 eyePosition,
                 dirToPlayer.normalized,
+                _lineOfSightBuffer,
                 dist,
                 obstacleMask,
                 QueryTriggerInteraction.Ignore
             );
 
-            foreach (RaycastHit hit in hits)
+            for (int i = 0; i < hitCount; i++)
             {
-                Transform hitTransform = hit.collider.transform;
+                Collider hitCollider = _lineOfSightBuffer[i].collider;
+                if (hitCollider == null) continue;
+
+                Transform hitTransform = hitCollider.transform;
                 if (hitTransform == transform || hitTransform.IsChildOf(transform))
                     continue;
                 if (hitTransform == Target || hitTransform.IsChildOf(Target))
@@ -642,16 +684,11 @@ public class NPC : MonoBehaviour
 
     private bool HasAnimatorParameter(string parameterName, AnimatorControllerParameterType parameterType)
     {
-        if (Animator == null)
+        if (_animatorParameterTypes == null)
             return false;
 
-        foreach (AnimatorControllerParameter parameter in Animator.parameters)
-        {
-            if (parameter.name == parameterName && parameter.type == parameterType)
-                return true;
-        }
-
-        return false;
+        return _animatorParameterTypes.TryGetValue(parameterName, out AnimatorControllerParameterType type)
+               && type == parameterType;
     }
 
     private void SetAnimatorFloat(string parameterName, float value)

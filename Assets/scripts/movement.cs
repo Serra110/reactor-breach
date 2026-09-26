@@ -26,10 +26,16 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 lastFootstepPosition;
     private Vector3 _velocity;
     private Vector3 _slipVelocity;
+    private Transform movementView;
 
     void Start()
     {
         lastFootstepPosition = transform.position;
+        Camera playerCamera = GetComponentInChildren<Camera>(true);
+        if (playerCamera == null)
+            playerCamera = Camera.main;
+        if (playerCamera != null)
+            movementView = playerCamera.transform;
     }
 
     public void ResetVelocity()
@@ -52,7 +58,13 @@ public class PlayerMovement : MonoBehaviour
         bool sprint = IsSprintPressed();
         float speed = sprint ? sprintSpeed : walkSpeed;
 
-        Vector3 move = transform.right * x + transform.forward * z;
+        Vector3 forward = movementView != null ? movementView.forward : transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+            forward = transform.forward;
+        forward.Normalize();
+        Vector3 right = new Vector3(forward.z, 0f, -forward.x);
+        Vector3 move = right * x + forward * z;
 
         if (controller != null)
             controller.Move(move * speed * Time.deltaTime);

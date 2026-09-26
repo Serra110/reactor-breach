@@ -11,6 +11,20 @@ namespace SimpleBuildingSystem
         public LayerMask ignoreMask = 0;
         public bool ignorePlayerTaggedObjects = true;
 
+        // FIX (WebGL): Camera.main era procurado uma vez por collider, em cada frame.
+        // A referencia fica em cache e e so refrescada se a camara for destruida.
+        private Camera _cachedMainCamera;
+
+        protected Camera MainCamera
+        {
+            get
+            {
+                if (_cachedMainCamera == null)
+                    _cachedMainCamera = Camera.main;
+                return _cachedMainCamera;
+            }
+        }
+
         protected bool ShouldIgnoreCollider(Collider collider)
         {
             if (collider == null) return false;
@@ -32,8 +46,8 @@ namespace SimpleBuildingSystem
             if (part != null && part.isPreview)
                 return true;
 
-            Camera mainCamera = Camera.main;
-            if (mainCamera != null && collider.transform.IsChildOf(mainCamera.transform))
+            Camera camera = MainCamera;
+            if (camera != null && collider.transform.IsChildOf(camera.transform))
                 return true;
 
             return false;

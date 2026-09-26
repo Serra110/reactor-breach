@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ironingot
   m_EditorClassIdentifier: Assembly-CSharp::SmeltRecipe
   inputItem: {fileID: 11400000, guid: 2f4677605c23af14e8d0397cb720a4d5, type: 2}
-  inputAmount: 2
+  inputAmount: 1
   outputItem: {fileID: 11400000, guid: c8545fb3548bb1b47a5515dd7a3562ed, type: 2}
   outputAmount: 1
   smeltTime: 4

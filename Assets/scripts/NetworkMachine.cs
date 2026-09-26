@@ -9,9 +9,11 @@ public abstract class NetworkMachine : NetworkBehaviour
     [SyncVar]
     public float machineProgress;
 
-    [ServerCallback]
     protected virtual void Update()
     {
+        if (!NetworkServer.active && !OfflineMvpBootstrap.IsOffline)
+            return;
+
         if (!machineActive)
             return;
 
@@ -20,18 +22,17 @@ public abstract class NetworkMachine : NetworkBehaviour
 
     protected abstract void TickServer(float deltaTime);
 
-    [ClientRpc]
     protected void RpcSetMachineFeedback(bool active, float progress)
     {
         machineActive = active;
         machineProgress = progress;
     }
 
-    [Server]
     protected void SetMachineState(bool active, float progress)
     {
         machineActive = active;
         machineProgress = Mathf.Clamp01(progress);
-        RpcSetMachineFeedback(machineActive, machineProgress);
+        if (NetworkServer.active)
+            RpcSetMachineFeedback(machineActive, machineProgress);
     }
 }

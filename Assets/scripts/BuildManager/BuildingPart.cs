@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SimpleBuildingSystem
@@ -34,16 +35,89 @@ namespace SimpleBuildingSystem
         private Material[][] _originalMaterials;
         private Material[][] _previewMaterials;
 
+        // FIX (WebGL): array de trabalho reutilizado. Atribuir a Renderer.materials
+        // instancia um Material novo por renderer, por frame, e o antigo nunca e
+        // destruido -> vazamento nativo que acaba em OOM/crash do browser.
+        // SetSharedMaterials substitui a lista sem clonar, entao nao aloca nada
+        // (embora a API exija List<Material>, a lista e reutilizada).
+        private List<Material>[] _scratchMaterials;
+
         private void Awake()
         {
             _renderers = GetComponentsInChildren<Renderer>();
             _originalMaterials = new Material[_renderers.Length][];
             _previewMaterials = new Material[_renderers.Length][];
+            _scratchMaterials = new List<Material>[_renderers.Length];
             for (int i = 0; i < _renderers.Length; i++)
             {
-                _originalMaterials[i] = _renderers[i].materials;
-                _previewMaterials[i] = new Material[_renderers[i].materials.Length];
+                // sharedMaterials nao instanciam copias.
+                _originalMaterials[i] = _renderers[i].sharedMaterials;
+                _previewMaterials[i] = new Material[_originalMaterials[i].Length];
+                _scratchMaterials[i] = new List<Material>(_originalMaterials[i].Length);
             }
+        }
+
+        private void OnDestroy()
+        {
+            if (_previewMaterials == null)
+                return;
+
+            for (int i = 0; i < _previewMaterials.Length; i++)
+            {
+                Material[] preview = _previewMaterials[i];
+                if (preview == null)
+                    continue;
+                for (int j = 0; j < preview.Length; j++)
+                {
+                    if (preview[j] != null)
+                        Destroy(preview[j]);
+                    preview[j] = null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Troca a lista de materiais do renderer sem instanciar copias nativas.
+        /// Nao escreve nos materiais partilhados, apenas substitui a referencia.
+        /// </summary>
+        private void ApplyMaterialSet(int rendererIndex, Material[] source)
+        {
+            Renderer target = _renderers[rendererIndex];
+            if (target == null)
+                return;
+
+            List<Material> scratch = _scratchMaterials[rendererIndex];
+            if (scratch.Count != source.Length)
+                scratch.Capacity = source.Length;
+
+            bool changed = false;
+            for (int j = 0; j < source.Length; j++)
+            {
+                if (j < scratch.Count)
+                {
+                    if (scratch[j] != source[j])
+                    {
+                        scratch[j] = source[j];
+                        changed = true;
+                    }
+                }
+                else
+                {
+                    scratch.Add(source[j]);
+                    changed = true;
+                }
+            }
+
+            while (scratch.Count > source.Length)
+            {
+                scratch.RemoveAt(scratch.Count - 1);
+                changed = true;
+            }
+
+            // Só chama a API quando algo mudou mesmo, para não marcar o renderer
+            // como sujo em todos os frames.
+            if (changed)
+                target.SetSharedMaterials(scratch);
         }
 
         public void SetPreviewState(bool valid)
@@ -55,7 +129,7 @@ namespace SimpleBuildingSystem
                 {
                     Material[] mats = _previewMaterials[i];
                     for (int j = 0; j < mats.Length; j++) mats[j] = mat;
-                    _renderers[i].materials = mats;
+                    ApplyMaterialSet(i, mats);
                 }
                 return;
             }
@@ -71,19 +145,20 @@ namespace SimpleBuildingSystem
         {
             for (int i = 0; i < _renderers.Length; i++)
             {
-                Material[] mats = _renderers[i].materials;
+                Material[] originals = _originalMaterials[i];
+                Material[] mats = _previewMaterials[i];
                 for (int j = 0; j < mats.Length; j++)
                 {
-                    if (_previewMaterials[i][j] == null)
-                        _previewMaterials[i][j] = CreatePreviewCopy(mats[j]);
+                    if (mats[j] == null)
+                        mats[j] = CreatePreviewCopy(originals[j]);
 
-                    var pm = _previewMaterials[i][j];
+                    var pm = mats[j];
                     if (pm.HasProperty("_BaseColor"))
                         pm.SetColor("_BaseColor", tint);
                     if (pm.HasProperty("_Color"))
                         pm.SetColor("_Color", tint);
                 }
-                _renderers[i].materials = _previewMaterials[i];
+                ApplyMaterialSet(i, mats);
             }
         }
 
@@ -107,7 +182,7 @@ namespace SimpleBuildingSystem
         public void RestoreOriginalMaterials()
         {
             for (int i = 0; i < _renderers.Length; i++)
-                _renderers[i].materials = _originalMaterials[i];
+                ApplyMaterialSet(i, _originalMaterials[i]);
         }
 
         // Chamado quando o jogador confirma a colocação.
