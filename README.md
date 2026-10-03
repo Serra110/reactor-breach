@@ -30,14 +30,16 @@ are still being developed.
 ## How to play
 
 I believe the game is pretty self-explanatory but,
-- WASD Movement
--B to build and scroll wheel to change build 
--E to interact, pick up minerals around the map and use smelter.
--Smelter is a box near the spawn
--Uranium has no use right now
--You must run away from the npc character chasing you
--left click in power stuff to start creating a power line, right click to go back, doesnt delete.
--Minerals spawn on the spawn plane but dont respawn there and msut go to the other part where the npc character is most active.
+- **WASD** — Movement
+- **B** — Build
+- **Scroll Wheel** — Change the building when the build mode is active
+- **E** — Interact, pick up minerals around the map, and use the smelter
+- **Smelter** — A box located near the spawn
+- **Uranium** — Currently has no use
+- **NPC** — You must run away from the NPC character chasing you
+- **Left Click** — On power-related objects, starts creating a power line
+- **Right Click** — Go back while creating a power line. It does not delete the line
+- **Minerals** — Spawn on the starting platform, but do not respawn there, You need to go to the other area, where the NPC is most active, to find more minerals
 
 
 ## Development
