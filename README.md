@@ -31,6 +31,7 @@ are still being developed.
 
 I believe the game is pretty self-explanatory but,
 - WASD Movement
+-B to build 
 -E to interact, pick up minerals around the map and use smelter.
 -Smelter is a box near the spawn
 -Uranium has no use right now
