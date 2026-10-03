@@ -51,4 +51,4 @@ You can play the game at:
 I hope you can minimally like this game and have fun, because i did while making this, and if its still not very good, i am proud of it, for being my first big project that wasnt fukky ai generated.
 
 AI was used to debug code, and network since i am not savy with C#.
-- If you will play multiplayer you need to download the game.
+- If you will play multiplayer you need to download the game, please try it if you have time tho since its funnier and took a long time to implement.
